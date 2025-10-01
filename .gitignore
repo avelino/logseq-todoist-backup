@@ -1,0 +1,9 @@
+node_modules
+.DS_Store
+dist
+dist-ssr
+*.local
+
+# clj
+.lsp/.cache/
+.clj-kondo/.cache/

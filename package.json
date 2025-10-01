@@ -1,0 +1,32 @@
+{
+  "name": "logseq-todoist-backup",
+  "version": "0.0.1",
+  "main": "dist/index.html",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@logseq/libs": "^0.0.17"
+  },
+  "devDependencies": {
+    "@semantic-release/changelog": "6.0.3",
+    "@semantic-release/exec": "6.0.3",
+    "@semantic-release/git": "10.0.1",
+    "@semantic-release/npm": "10.0.6",
+    "@types/node": "18.19.123",
+    "@typescript-eslint/eslint-plugin": "5.62.0",
+    "@typescript-eslint/parser": "5.62.0",
+    "conventional-changelog-conventionalcommits": "5.0.0",
+    "eslint": "8.57.1",
+    "semantic-release": "21.1.2",
+    "typescript": "4.9.5",
+    "vite": "4.5.14",
+    "vite-plugin-logseq": "1.1.2"
+  },
+  "logseq": {
+    "id": "logseq-todoist-backup",
+    "icon": "./logo.png"
+  }
+}
