@@ -11,6 +11,7 @@ const DEFAULT_PAGE_NAME = "todoist";
 const TOOLBAR_KEY = "logseq-todoist-backup-sync";
 const TOOLBAR_BUTTON_CLASS = "logseq-todoist-backup-button";
 const TOOLBAR_ICON_CLASS = "logseq-todoist-backup-icon";
+const TOOLBAR_ICON_IMG_CLASS = "logseq-todoist-backup-icon-image";
 const TODOIST_ID_PROPERTY = "todoist-id";
 const PLACEHOLDER_CONTENT = "Nenhuma tarefa encontrada.";
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -121,12 +122,20 @@ async function main() {
     .${TOOLBAR_BUTTON_CLASS}:hover {
       opacity: 0.8;
     }
+
+    .${TOOLBAR_ICON_IMG_CLASS} {
+      width: 1.25rem;
+      height: 1.25rem;
+      object-fit: contain;
+    }
   `);
+
+  const iconUrl = logseq.resolveResourceFullUrl("logo.png");
 
   logseq.App.registerCommandPalette(
     {
       key: TOOLBAR_KEY,
-      label: "Todoist: Sincronizar backup",
+      label: "Todoist: Sync backup",
     },
     () => syncTodoist("manual")
   );
@@ -137,9 +146,11 @@ async function main() {
       <a
         class="button ${TOOLBAR_BUTTON_CLASS}"
         data-on-click="syncTodoistBackup"
-        title="Todoist: Sincronizar backup"
+        title="Todoist: Sync backup"
       >
-        <span class="${TOOLBAR_ICON_CLASS}" aria-hidden="true">🗂️</span>
+        <span class="${TOOLBAR_ICON_CLASS}" aria-hidden="true">
+          <img src="${iconUrl}" class="${TOOLBAR_ICON_IMG_CLASS}" alt="Todoist backup" />
+        </span>
       </a>
     `,
   });
