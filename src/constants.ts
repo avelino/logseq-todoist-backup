@@ -1,0 +1,9 @@
+export const TODOIST_API_BASE = "https://api.todoist.com/api/v1";
+export const DEFAULT_PAGE_NAME = "todoist";
+export const TOOLBAR_KEY = "logseq-todoist-backup-sync";
+export const TOOLBAR_BUTTON_CLASS = "logseq-todoist-backup-button";
+export const TOOLBAR_ICON_CLASS = "logseq-todoist-backup-icon";
+export const TOOLBAR_ICON_IMG_CLASS = "logseq-todoist-backup-icon-image";
+export const TODOIST_ID_PROPERTY = "todoist-id";
+export const PLACEHOLDER_CONTENT = "No tasks found.";
+export const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
