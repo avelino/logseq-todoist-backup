@@ -5,6 +5,12 @@ name: Releases
 env:
   PLUGIN_NAME: logseq-todoist-backup
 
+# Ensure semantic-release can push tags and create releases
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
 # Controls when the action will run.
 on:
   push:
@@ -28,7 +34,7 @@ jobs:
           node-version: "20"
       - uses: pnpm/action-setup@v2.4.1
         with:
-          version: 6.35.1
+          version: 10.4.0
       - run: npx pnpm install
       - run: npx pnpm build
       - name: Install zip
