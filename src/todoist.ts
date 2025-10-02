@@ -173,7 +173,7 @@ export function safeText(value: string | null | undefined) {
 }
 
 export function safeLinkText(value: string | null | undefined) {
-  return safeText(value).replace(/[\[\]]/g, " ");
+  return safeText(value).replace(/\[/g, " ").replace(/\]/g, " ");
 }
 
 export function formatLabelTag(label: string) {

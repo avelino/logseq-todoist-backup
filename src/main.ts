@@ -1,5 +1,4 @@
 import "@logseq/libs";
-import type { IBatchBlock } from "@logseq/libs/dist/LSPlugin";
 
 import { buildBlocks, writeBlocks } from "./blocks";
 import {

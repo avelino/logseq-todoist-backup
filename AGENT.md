@@ -12,8 +12,8 @@ Environment & Tooling
 - Package manager: pnpm (invoke via `npx pnpm ...`); lockfile is `pnpm-lock.yaml`.
 - Install deps before running scripts: `npx pnpm install`.
 - Build command: `npx pnpm build` (runs `tsc` then `vite build`).
-- Lint command: `npx pnpm eslint ./src --ext .ts` (ESLint with `@typescript-eslint` config at `.eslintrc.json`).
-- Target Node version aligns with CI (`actions/setup-node@v3` using Node 16). Avoid features missing in Node 16 runtime.
+- Lint command: `npx pnpm exec eslint ./src --ext .ts` (uses local ESLint 8 + `@typescript-eslint` 8 with `.eslintrc.json`).
+- Target Node version aligns com CI (`actions/setup-node@v3`) rodando Node 20.8+. Evite APIs ausentes nesse runtime.
 
 Code Structure Rules
 
@@ -36,7 +36,7 @@ TypeScript & Validation Expectations
 Quality Gates Before Submitting Changes
 
 - Run `npx pnpm install` if dependencies changed or a new workspace is cloned.
-- Run `npx pnpm eslint ./src --ext .ts` to ensure zero lint errors.
+- Run `npx pnpm exec eslint ./src --ext .ts` to ensure zero lint errors.
 - Run `npx pnpm build` to confirm TypeScript type-check passes and bundle succeeds.
 - For behavioral changes, manually test within Logseq if possible: trigger manual sync, confirm automatic sync scheduling, verify block updates/deletions.
 
