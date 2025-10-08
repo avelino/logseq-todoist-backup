@@ -4,10 +4,13 @@ import { buildBlocks, writeBlocks } from "./blocks";
 import {
   buildLabelMap,
   buildNameMap,
+  fetchCompletedTasks,
   fetchPaginated,
+  mergeBackupTasks,
   TodoistLabel,
   TodoistProject,
   TodoistTask,
+  TodoistBackupTask,
 } from "./todoist";
 import { readSettings, settingsSchema } from "./settings";
 import { cancelScheduledSync, scheduleAutoSync } from "./scheduler";
@@ -73,8 +76,9 @@ async function syncTodoist(trigger: "manual" | "auto") {
   }
 
   try {
-    const [tasks, projects, labels] = await Promise.all([
+    const [tasks, completedTasks, projects, labels] = await Promise.all([
       fetchPaginated<TodoistTask>("/tasks", token),
+      fetchCompletedTasks(token),
       fetchPaginated<TodoistProject>("/projects", token),
       fetchPaginated<TodoistLabel>("/labels", token),
     ]);
@@ -82,7 +86,9 @@ async function syncTodoist(trigger: "manual" | "auto") {
     const projectMap = buildNameMap(projects);
     const labelMap = buildLabelMap(labels);
 
-    const blocks = buildBlocks(tasks, projectMap, labelMap);
+    const backupTasks: TodoistBackupTask[] = mergeBackupTasks(tasks, completedTasks);
+
+    const blocks = buildBlocks(backupTasks, projectMap, labelMap);
     await writeBlocks(pageName, blocks);
 
     if (trigger === "manual") {

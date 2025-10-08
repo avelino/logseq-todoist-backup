@@ -45,7 +45,7 @@ Development Conventions
 - Avoid introducing global state beyond what already exists (`syncInProgress`, `scheduledSync`); prefer closures or module-scoped consts.
 - Use template literals only when placeholders are necessary; keep strings ASCII.
 - Keep network utilities reusable; any new endpoint helpers belong in `todoist.ts` with shared pagination handling.
-- When updating existing blocks, ensure `todoist-id::` remains the canonical identifier; changes to block formatting must stay backward compatible.
+- When updating existing blocks, ensure `todoist-id::` remains the canonical identifier; changes to block formatting must stay backward compatible and preserve completed tasks.
 - Do not commit unused modules; delete dead code paths and ensure imports stay minimal.
 
 Error Handling & Logging
