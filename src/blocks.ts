@@ -2,7 +2,10 @@ import type { BlockEntity, IBatchBlock } from "@logseq/libs/dist/LSPlugin";
 
 import {
   PLACEHOLDER_CONTENT,
+  TODOIST_COMPLETED_PROPERTY,
+  TODOIST_DUE_PROPERTY,
   TODOIST_ID_PROPERTY,
+  TODOIST_STATUS_PROPERTY,
 } from "./constants";
 import {
   formatDue,
@@ -32,8 +35,15 @@ export async function writeBlocks(pageName: string, blocks: IBatchBlock[]) {
     const todoistId = extractTodoistId(block.content);
     if (!todoistId) continue;
 
-    const formatted = block.content;
+    let formatted = block.content;
     const existing = blockMap.get(todoistId);
+    if (existing) {
+      const existingDue = extractTodoistDue(existing.content ?? "");
+      if (existingDue && !hasDueProperty(formatted)) {
+        formatted = applyDueFallback(formatted, existingDue);
+      }
+    }
+
     if (existing) {
       await logseq.Editor.updateBlock(existing.uuid, formatted);
     } else {
@@ -48,6 +58,14 @@ export async function writeBlocks(pageName: string, blocks: IBatchBlock[]) {
 
   const obsoleteBlocks = [...blockMap.entries()].filter(([id]) => !seenIds.has(id));
   for (const [, entity] of obsoleteBlocks) {
+    const content = entity.content ?? "";
+    const status = extractTodoistStatus(content);
+    if (status === "completed") {
+      continue;
+    }
+    if (!status && hasCompletedProperty(content)) {
+      continue;
+    }
     await logseq.Editor.removeBlock(entity.uuid);
   }
 
@@ -85,7 +103,7 @@ export function blockContent(
   projectMap: Map<string, string>,
   labelMap: Map<string, string>
 ) {
-  const dueText = safeLinkText(formatDue(task.due));
+  const dueText = resolvePrimaryDate(task);
   const taskTitle = safeLinkText(safeText(task.content) || "Untitled task");
   const projectName = projectMap.get(String(task.project_id ?? "")) ?? "Inbox";
   const labels = resolveLabels(task, labelMap);
@@ -95,6 +113,11 @@ export function blockContent(
   const taskTitleLogseqFormat = `${taskTitle}`;
 
   const properties = [`todoist-id:: [${task.id}](${url})`, `todoist-project:: #${projectName}`];
+
+  const duePropertyValue = resolveDuePropertyValue(task);
+  if (duePropertyValue) {
+    properties.push(`${TODOIST_DUE_PROPERTY}:: ${duePropertyValue}`);
+  }
 
   const description = safeText(task.description ?? "");
   if (description) {
@@ -115,26 +138,127 @@ export function blockContent(
 
   if (task.completed) {
     const completedDate = task.completed_date ?? task.completed_at ?? "";
-    const formatted = formatDue(normalizeCompletedDue(completedDate));
+    const formatted = formatCompletedDate(completedDate);
     const completedValue = formatted ? `[[${formatted}]]` : completedDate ? safeLinkText(completedDate) : "";
     if (completedValue) {
-      properties.push(`todoist-completed:: ${completedValue}`);
+      properties.push(`${TODOIST_COMPLETED_PROPERTY}:: ${completedValue}`);
     }
   }
+
+  const statusValue = task.status ?? (task.completed ? "completed" : "active");
+  properties.push(`${TODOIST_STATUS_PROPERTY}:: ${statusValue}`);
 
   return [`${dateLogseqFormat} ${taskTitleLogseqFormat}`, ...properties].join("\n");
 }
 
-function normalizeCompletedDue(value: string | null | undefined) {
-  if (!value) {
-    return undefined;
+function resolvePrimaryDate(task: TodoistBackupTask) {
+  const dueFormatted = formatDue(task.due);
+  if (dueFormatted) {
+    return safeLinkText(dueFormatted);
   }
-  return { date: value };
+  const fallback = task.fallbackDue ?? "";
+  if (fallback) {
+    return safeLinkText(fallback);
+  }
+
+  if (task.completed) {
+    const completedFormatted = formatCompletedDate(task.completed_date ?? task.completed_at ?? "");
+    if (completedFormatted) {
+      return safeLinkText(completedFormatted);
+    }
+  }
+
+  return "";
+}
+
+function resolveDuePropertyValue(task: TodoistBackupTask) {
+  const explicitDue = formatDue(task.due);
+  if (explicitDue) {
+    return explicitDue;
+  }
+  return undefined;
+}
+
+function formatCompletedDate(value: string | null | undefined) {
+  if (!value) {
+    return "";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+  return parsed.toISOString().slice(0, 10);
 }
 
 export function extractTodoistId(content: string) {
   const match = content.match(new RegExp(`^${TODOIST_ID_PROPERTY}::\\s*(.+)$`, "mi"));
   return match ? match[1].trim() : undefined;
+}
+
+function extractTodoistStatus(content: string): TodoistBackupTask["status"] | undefined {
+  const match = content.match(new RegExp(`^${TODOIST_STATUS_PROPERTY}::\\s*(.+)$`, "mi"));
+  const value = match ? match[1].trim().toLowerCase() : undefined;
+  if (value === "active" || value === "completed" || value === "deleted") {
+    return value;
+  }
+  return undefined;
+}
+
+function hasCompletedProperty(content: string) {
+  return new RegExp(`^${TODOIST_COMPLETED_PROPERTY}::\\s*(.+)$`, "mi").test(content);
+}
+
+function extractTodoistDue(content: string) {
+  const match = content.match(new RegExp(`^${TODOIST_DUE_PROPERTY}::\\s*(.+)$`, "mi"));
+  return match ? sanitizeDueValue(match[1]) : undefined;
+}
+
+function applyDueFallback(content: string, dueValue: string) {
+  const normalized = sanitizeDueValue(dueValue);
+  if (!normalized) {
+    return content;
+  }
+
+  const lines = content.split("\n");
+  if (lines.length === 0) {
+    return content;
+  }
+
+  const placeholder = "[[No due date]]";
+  if (lines[0].includes(placeholder)) {
+    lines[0] = lines[0].replace(placeholder, `[[${normalized}]]`);
+  }
+
+  const dueLine = `${TODOIST_DUE_PROPERTY}:: ${normalized}`;
+  const dueRegex = new RegExp(`^${TODOIST_DUE_PROPERTY}::`, "i");
+  const existingDueIndex = lines.findIndex((line) => dueRegex.test(line));
+  if (existingDueIndex !== -1) {
+    lines[existingDueIndex] = dueLine;
+  } else {
+    const projectIndex = lines.findIndex((line) => line.startsWith("todoist-project::"));
+    const insertIndex = projectIndex !== -1 ? projectIndex + 1 : 1;
+    lines.splice(insertIndex, 0, dueLine);
+  }
+
+  return lines.join("\n");
+}
+
+function sanitizeDueValue(value: string | null | undefined) {
+  if (!value) {
+    return "";
+  }
+  const trimmed = safeText(value);
+  if (!trimmed) {
+    return "";
+  }
+  if (trimmed.startsWith("[[") && trimmed.endsWith("]]")) {
+    return trimmed.slice(2, -2).trim();
+  }
+  return trimmed;
+}
+
+function hasDueProperty(content: string) {
+  return new RegExp(`^${TODOIST_DUE_PROPERTY}::`, "i").test(content);
 }
 
 export function buildBlockMap(tree: BlockEntity[]) {

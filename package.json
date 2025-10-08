@@ -1,6 +1,6 @@
 {
   "name": "logseq-todoist-backup",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "main": "dist/index.html",
   "scripts": {
     "dev": "vite",
@@ -19,7 +19,7 @@
     "@typescript-eslint/eslint-plugin": "8.45.0",
     "@typescript-eslint/parser": "8.45.0",
     "conventional-changelog-conventionalcommits": "9.1.0",
-    "eslint": "9.37.0",
+    "eslint": "8.57.1",
     "semantic-release": "24.2.9",
     "typescript": "5.9.3",
     "vite": "7.1.9",

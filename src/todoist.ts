@@ -36,6 +36,8 @@ export type TodoistBackupTask = TodoistTask & {
   completed?: boolean;
   completed_at?: string | null;
   completed_date?: string | null;
+  status?: "active" | "completed" | "deleted";
+  fallbackDue?: string;
 };
 
 export type TodoistProject = {
@@ -205,7 +207,11 @@ export function mergeBackupTasks(
 
   for (const task of completed) {
     const key = String(task.id);
-    map.set(key, task);
+    map.set(key, {
+      ...task,
+      status: "completed",
+      fallbackDue: formatDue(task.due) || undefined,
+    });
   }
 
   for (const task of active) {
@@ -215,6 +221,8 @@ export function mergeBackupTasks(
       completed: false,
       completed_at: null,
       completed_date: null,
+      status: "active",
+      fallbackDue: formatDue(task.due) || undefined,
     });
   }
 
