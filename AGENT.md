@@ -29,7 +29,7 @@ TypeScript & Validation Expectations
 - Validate all external inputs aggressively:
   - Todoist responses: guard optional fields, normalize IDs to `string`, validate dates against `ISO_DATE_PATTERN`, and handle pagination cursors defensively.
   - Logseq settings: trim strings, coerce numbers, clamp intervals (`>= 1 minute`); reuse `readSettingsWithInterval` for timing.
-  - User-provided text: sanitize using existing helpers (`safeText`, `safeLinkText`, `formatLabelTag`) before embedding into Logseq blocks.
+- User-provided text: sanitize using existing helpers (`safeText`, `safeLinkText`, `formatLabelTag`) before embedding into Logseq blocks; `safeLinkText` preserves Logseq wiki links and Markdown bracketed labels while stripping unmatched brackets.
 - Prefer `unknown` over `any` for new external payloads; narrow via predicates or dedicated type guards.
 - Handle async errors with try/catch; present actionable messages via `logseq.UI.showMsg` and log details to console with `[logseq-todoist-backup]` prefix.
 

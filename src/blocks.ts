@@ -87,7 +87,10 @@ export function blockContent(
   const labels = resolveLabels(task, labelMap);
   const labelsProperty = labels.length
     ? labels
-        .map(formatLabelTag)
+        .map((label) => {
+          const tag = formatLabelTag(label);
+          return tag.startsWith("#") ? tag : `#${tag}`;
+        })
         .filter((value) => value.length > 0)
         .join(" ")
     : "-";
@@ -101,7 +104,7 @@ export function blockContent(
     `${dateLogseqFormat} ${taskTitleLogseqFormat}`,
     `todoist-id:: ${task.id}`,
     `todoist-desc:: ${descProperty}`,
-    `todoist-project:: ${projectName}`,
+    `todoist-project:: #${projectName}`,
     `todoist-labels:: ${labelsProperty}`,
   ].join("\n");
 }
