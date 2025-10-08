@@ -173,7 +173,48 @@ export function safeText(value: string | null | undefined) {
 }
 
 export function safeLinkText(value: string | null | undefined) {
-  return safeText(value).replace(/\[/g, " ").replace(/\]/g, " ");
+  const sanitized = safeText(value);
+  if (!sanitized) return "";
+
+  const pieces: string[] = [];
+  let index = 0;
+
+  while (index < sanitized.length) {
+    const char = sanitized[index];
+
+    if (char === "[") {
+      if (sanitized[index + 1] === "[") {
+        const closing = sanitized.indexOf("]]", index + 2);
+        if (closing !== -1) {
+          pieces.push(sanitized.slice(index, closing + 2));
+          index = closing + 2;
+          continue;
+        }
+      }
+
+      const closing = sanitized.indexOf("]", index + 1);
+      if (closing !== -1) {
+        pieces.push(sanitized.slice(index, closing + 1));
+        index = closing + 1;
+        continue;
+      }
+
+      pieces.push(" ");
+      index += 1;
+      continue;
+    }
+
+    if (char === "]") {
+      pieces.push(" ");
+      index += 1;
+      continue;
+    }
+
+    pieces.push(char);
+    index += 1;
+  }
+
+  return safeText(pieces.join(""));
 }
 
 export function formatLabelTag(label: string) {
