@@ -1,4 +1,5 @@
 export const TODOIST_API_BASE = "https://api.todoist.com/api/v1";
+export const TODOIST_SYNC_API_BASE = "https://api.todoist.com/sync/v9";
 export const DEFAULT_PAGE_NAME = "todoist";
 export const TOOLBAR_KEY = "logseq-todoist-backup-sync";
 export const TOOLBAR_BUTTON_CLASS = "logseq-todoist-backup-button";

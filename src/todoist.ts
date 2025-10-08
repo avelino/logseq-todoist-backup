@@ -1,4 +1,4 @@
-import { TODOIST_API_BASE, ISO_DATE_PATTERN } from "./constants";
+import { TODOIST_API_BASE, ISO_DATE_PATTERN, TODOIST_SYNC_API_BASE } from "./constants";
 
 export type TodoistId = string | number;
 
@@ -18,6 +18,24 @@ export type TodoistTask = {
   label_ids?: Array<TodoistId>;
   due?: TodoistDue | null;
   url?: string;
+};
+
+export type TodoistCompletedItem = {
+  task_id?: TodoistId;
+  content?: string;
+  description?: string | null;
+  project_id?: TodoistId | null;
+  labels?: Array<TodoistId | string>;
+  label_ids?: Array<TodoistId>;
+  completed_at?: string | null;
+  completed_date?: string | null;
+  task?: Partial<TodoistTask> & { id?: TodoistId };
+};
+
+export type TodoistBackupTask = TodoistTask & {
+  completed?: boolean;
+  completed_at?: string | null;
+  completed_date?: string | null;
 };
 
 export type TodoistProject = {
@@ -40,18 +58,39 @@ export type PaginatedResponse<T> = {
   next_cursor?: string | null;
 };
 
-export async function fetchPaginated<T>(path: string, token: string): Promise<T[]> {
+export type FetchPaginatedOptions = {
+  baseUrl?: string;
+  searchParams?: Record<string, string | undefined>;
+  method?: "GET" | "POST";
+  body?: unknown;
+};
+
+export async function fetchPaginated<T>(
+  path: string,
+  token: string,
+  options: FetchPaginatedOptions = {}
+): Promise<T[]> {
   const items: T[] = [];
   let cursor: string | undefined;
+  const {
+    baseUrl = TODOIST_API_BASE,
+    searchParams = {},
+    method = "GET",
+  } = options;
 
   do {
-    const url = new URL(`${TODOIST_API_BASE}${path}`);
+    const url = new URL(`${baseUrl}${path}`);
+    for (const [key, value] of Object.entries(searchParams)) {
+      if (value !== undefined) {
+        url.searchParams.set(key, value);
+      }
+    }
     if (cursor) {
       url.searchParams.set("cursor", cursor);
     }
 
     const response = await fetch(url.toString(), {
-      method: "GET",
+      method,
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
@@ -119,6 +158,67 @@ export function buildLabelMap(labels: TodoistLabel[]) {
     map.set(name, name);
   }
   return map;
+}
+
+export function normalizeCompletedTask(item: TodoistCompletedItem): TodoistBackupTask | undefined {
+  const source = item.task ?? {};
+  const id = source.id ?? item.task_id;
+  if (id === undefined || id === null) {
+    return undefined;
+  }
+
+  const url = source.url ?? (id ? `https://todoist.com/showTask?id=${id}` : undefined);
+
+  return {
+    id,
+    content: source.content ?? item.content ?? "",
+    description: source.description ?? item.description ?? null,
+    project_id: source.project_id ?? item.project_id ?? null,
+    labels: source.labels ?? item.labels,
+    label_ids: source.label_ids ?? item.label_ids,
+    due: source.due ?? null,
+    url,
+    completed: true,
+    completed_at: item.completed_at ?? null,
+    completed_date: item.completed_date ?? null,
+  };
+}
+
+export async function fetchCompletedTasks(token: string): Promise<TodoistBackupTask[]> {
+  const items = await fetchPaginated<TodoistCompletedItem>("/completed/get_all", token, {
+    baseUrl: TODOIST_SYNC_API_BASE,
+    searchParams: {
+      limit: "200",
+    },
+  });
+
+  return items
+    .map((item) => normalizeCompletedTask(item))
+    .filter((task): task is TodoistBackupTask => Boolean(task));
+}
+
+export function mergeBackupTasks(
+  active: TodoistTask[],
+  completed: TodoistBackupTask[]
+): TodoistBackupTask[] {
+  const map = new Map<string, TodoistBackupTask>();
+
+  for (const task of completed) {
+    const key = String(task.id);
+    map.set(key, task);
+  }
+
+  for (const task of active) {
+    const key = String(task.id);
+    map.set(key, {
+      ...task,
+      completed: false,
+      completed_at: null,
+      completed_date: null,
+    });
+  }
+
+  return [...map.values()];
 }
 
 export function dueTimestamp(due?: TodoistDue | null) {

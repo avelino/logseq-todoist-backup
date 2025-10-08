@@ -10,7 +10,7 @@ import {
   safeLinkText,
   safeText,
   dueTimestamp,
-  TodoistTask,
+  TodoistBackupTask,
 } from "./todoist";
 
 export async function writeBlocks(pageName: string, blocks: IBatchBlock[]) {
@@ -57,11 +57,16 @@ export async function writeBlocks(pageName: string, blocks: IBatchBlock[]) {
 }
 
 export function buildBlocks(
-  tasks: TodoistTask[],
+  tasks: TodoistBackupTask[],
   projectMap: Map<string, string>,
   labelMap: Map<string, string>
 ): IBatchBlock[] {
   const sorted = [...tasks].sort((a, b) => {
+    const aCompleted = Boolean(a.completed);
+    const bCompleted = Boolean(b.completed);
+    if (aCompleted !== bCompleted) {
+      return aCompleted ? 1 : -1;
+    }
     const aTime = dueTimestamp(a.due);
     const bTime = dueTimestamp(b.due);
     if (aTime !== bTime) {
@@ -76,37 +81,55 @@ export function buildBlocks(
 }
 
 export function blockContent(
-  task: TodoistTask,
+  task: TodoistBackupTask,
   projectMap: Map<string, string>,
   labelMap: Map<string, string>
 ) {
   const dueText = safeLinkText(formatDue(task.due));
   const taskTitle = safeLinkText(safeText(task.content) || "Untitled task");
-  const description = safeText(task.description ?? "");
   const projectName = projectMap.get(String(task.project_id ?? "")) ?? "Inbox";
   const labels = resolveLabels(task, labelMap);
-  const labelsProperty = labels.length
-    ? labels
-        .map((label) => {
-          const tag = formatLabelTag(label);
-          return tag.startsWith("#") ? tag : `#${tag}`;
-        })
-        .filter((value) => value.length > 0)
-        .join(" ")
-    : "-";
   const url = task.url ?? `https://todoist.com/showTask?id=${task.id}`;
 
   const dateLogseqFormat = dueText ? `[[${dueText}]]` : "[[No due date]]";
-  const taskTitleLogseqFormat = `${taskTitle} [todoist](${url})`;
-  const descProperty = description ? description : "-";
+  const taskTitleLogseqFormat = `${taskTitle}`;
 
-  return [
-    `${dateLogseqFormat} ${taskTitleLogseqFormat}`,
-    `todoist-id:: ${task.id}`,
-    `todoist-desc:: ${descProperty}`,
-    `todoist-project:: #${projectName}`,
-    `todoist-labels:: ${labelsProperty}`,
-  ].join("\n");
+  const properties = [`todoist-id:: [${task.id}](${url})`, `todoist-project:: #${projectName}`];
+
+  const description = safeText(task.description ?? "");
+  if (description) {
+    properties.push(`todoist-desc:: ${description}`);
+  }
+
+  const labelsProperty = labels
+    .map((label) => {
+      const tag = formatLabelTag(label);
+      return tag.startsWith("#") ? tag : `#${tag}`;
+    })
+    .filter((value) => value.length > 0)
+    .join(" ");
+
+  if (labelsProperty) {
+    properties.push(`todoist-labels:: ${labelsProperty}`);
+  }
+
+  if (task.completed) {
+    const completedDate = task.completed_date ?? task.completed_at ?? "";
+    const formatted = formatDue(normalizeCompletedDue(completedDate));
+    const completedValue = formatted ? `[[${formatted}]]` : completedDate ? safeLinkText(completedDate) : "";
+    if (completedValue) {
+      properties.push(`todoist-completed:: ${completedValue}`);
+    }
+  }
+
+  return [`${dateLogseqFormat} ${taskTitleLogseqFormat}`, ...properties].join("\n");
+}
+
+function normalizeCompletedDue(value: string | null | undefined) {
+  if (!value) {
+    return undefined;
+  }
+  return { date: value };
 }
 
 export function extractTodoistId(content: string) {
@@ -126,7 +149,7 @@ export function buildBlockMap(tree: BlockEntity[]) {
   return map;
 }
 
-function resolveLabels(task: TodoistTask, labelMap: Map<string, string>) {
+function resolveLabels(task: TodoistBackupTask, labelMap: Map<string, string>) {
   const values = task.labels ?? task.label_ids ?? [];
   const names: string[] = [];
   for (const value of values ?? []) {

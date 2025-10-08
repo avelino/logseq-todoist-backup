@@ -16,7 +16,7 @@ Logseq plugin that keeps a read-only backup of all Todoist tasks inside a dedica
 - Read-only integration with the Todoist API (`https://api.todoist.com/api/v1`).
 - Manual sync via toolbar or command palette.
 - Automatic background sync with a configurable interval (default 5 minutes).
-- Updates existing blocks based on `todoist-id::`, avoiding duplicates and removing tasks that no longer exist.
+- Updates existing blocks based on `todoist-id::`, avoiding duplicates and removing tasks that no longer exist while preserving completed tasks.
 - Generates Logseq-friendly blocks including links, description, project, and labels prefixed with `#`.
 
 ## Requirements
@@ -56,7 +56,7 @@ Dates are normalized to `YYYY-MM-DD`. Labels are sanitized and prefixed with `#`
 
 ## Sync behavior
 
-- Each task is identified by `todoist-id::`. Existing blocks are updated, new ones appended, and obsolete ones removed.
+- Each task is identified by `todoist-id::`. Existing blocks are updated, new ones appended, and obsolete ones removed. Completed tasks remain available unless deleted in Todoist.
 - When no tasks are returned, a placeholder block with `No tasks found.` is inserted.
 - All interactions with Todoist are read-only.
 
