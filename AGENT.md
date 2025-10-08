@@ -46,6 +46,8 @@ Development Conventions
 - Use template literals only when placeholders are necessary; keep strings ASCII.
 - Keep network utilities reusable; any new endpoint helpers belong in `todoist.ts` with shared pagination handling.
 - When updating existing blocks, ensure `todoist-id::` remains the canonical identifier; changes to block formatting must stay backward compatible and preserve completed tasks.
+- Preserve Logseq history of completed items: blocks containing `todoist-completed::` should never be removed during sync.
+- Use `todoist-status::` to persist task lifecycle (`active`, `completed`); only remove blocks when Todoist no longer returns the task (treated as deleted).
 - Do not commit unused modules; delete dead code paths and ensure imports stay minimal.
 
 Error Handling & Logging
