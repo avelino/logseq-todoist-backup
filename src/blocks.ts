@@ -1,7 +1,10 @@
-import type { BlockEntity, IBatchBlock } from "@logseq/libs/dist/LSPlugin";
+import type { BlockEntity, BlockUUIDTuple, IBatchBlock } from "@logseq/libs/dist/LSPlugin";
 
 import {
   PLACEHOLDER_CONTENT,
+  TODOIST_COMMENT_ID_PROPERTY,
+  TODOIST_COMMENTS_PROPERTY,
+  TODOIST_COMMENT_POSTED_PROPERTY,
   TODOIST_COMPLETED_PROPERTY,
   TODOIST_DUE_PROPERTY,
   TODOIST_ID_PROPERTY,
@@ -14,6 +17,7 @@ import {
   safeText,
   dueTimestamp,
   TodoistBackupTask,
+  TodoistComment,
 } from "./todoist";
 
 export async function writeBlocks(pageName: string, blocks: IBatchBlock[]) {
@@ -42,14 +46,14 @@ export async function writeBlocks(pageName: string, blocks: IBatchBlock[]) {
       if (existingDue && !hasDueProperty(formatted)) {
         formatted = applyDueFallback(formatted, existingDue);
       }
-    }
 
-    if (existing) {
       await logseq.Editor.updateBlock(existing.uuid, formatted);
+      await syncComments(existing.uuid, block.children ?? []);
     } else {
       const created = await logseq.Editor.appendBlockInPage(page.uuid, formatted);
       if (created) {
         blockMap.set(todoistId, created);
+        await syncComments(created.uuid, block.children ?? []);
       }
     }
 
@@ -95,6 +99,7 @@ export function buildBlocks(
 
   return sorted.map((task) => ({
     content: blockContent(task, projectMap, labelMap),
+    children: buildCommentBlocks(task),
   }));
 }
 
@@ -149,6 +154,89 @@ export function blockContent(
   properties.push(`${TODOIST_STATUS_PROPERTY}:: ${statusValue}`);
 
   return [`${dateLogseqFormat} ${taskTitleLogseqFormat}`, ...properties].join("\n");
+}
+
+function buildCommentBlocks(task: TodoistBackupTask): IBatchBlock[] {
+  const comments = task.comments ?? [];
+  if (comments.length === 0) {
+    return [];
+  }
+
+  const sorted = [...comments].sort((a, b) => {
+    const aTime = commentTimestamp(a.posted_at);
+    const bTime = commentTimestamp(b.posted_at);
+    if (aTime !== bTime) {
+      return aTime - bTime;
+    }
+    return String(a.id).localeCompare(String(b.id));
+  });
+
+  return [
+    {
+      content: `${TODOIST_COMMENTS_PROPERTY}:: ${sorted.length}`,
+      children: sorted.map((comment) => ({
+        content: commentContent(task, comment),
+      })),
+    },
+  ];
+}
+
+function commentContent(task: TodoistBackupTask, comment: TodoistComment) {
+  const text = safeLinkText(safeText(comment.content));
+  const url = buildCommentUrl(task, comment);
+  const lines = [`[${text}](${url})`, `${TODOIST_COMMENT_ID_PROPERTY}:: ${comment.id}`];
+  if (comment.posted_at) {
+    const formatted = formatCommentTimestamp(comment.posted_at);
+    lines.push(`${TODOIST_COMMENT_POSTED_PROPERTY}:: ${formatted}`);
+  }
+  return lines.join("\n");
+}
+
+function buildCommentUrl(task: TodoistBackupTask, comment: TodoistComment) {
+  const taskId = String(comment.task_id ?? task.id);
+  return `https://todoist.com/app/task/${taskId}/comment/${comment.id}`;
+}
+
+function formatCommentTimestamp(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return safeText(value);
+  }
+  return parsed.toISOString();
+}
+
+async function syncComments(parentUuid: string, children: IBatchBlock[]) {
+  const existing = await logseq.Editor.getBlock(parentUuid, { includeChildren: true });
+  if (existing && existing.children) {
+    for (const child of existing.children) {
+      if (!isBlockEntity(child)) {
+        continue;
+      }
+      if (isCommentWrapper(child.content ?? "")) {
+        await logseq.Editor.removeBlock(child.uuid);
+      }
+    }
+  }
+
+  if (children.length > 0) {
+    await logseq.Editor.insertBatchBlock(parentUuid, children, { sibling: false });
+  }
+}
+
+function isBlockEntity(value: BlockEntity | BlockUUIDTuple | undefined): value is BlockEntity {
+  return Boolean(value && typeof value === "object" && "uuid" in value);
+}
+
+function isCommentWrapper(content: string) {
+  return new RegExp(`^${TODOIST_COMMENTS_PROPERTY}::`, "m").test(content);
+}
+
+function commentTimestamp(value: string | null | undefined) {
+  if (!value) {
+    return Number.POSITIVE_INFINITY;
+  }
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : Number.POSITIVE_INFINITY;
 }
 
 function resolvePrimaryDate(task: TodoistBackupTask) {
