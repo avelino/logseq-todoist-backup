@@ -1,4 +1,7 @@
-module.exports = {
+/**
+ * Semantic Release configuration responsible for orchestrating versioning and publishing steps.
+ */
+export default {
   branches: ["main"],
   plugins: [
     [

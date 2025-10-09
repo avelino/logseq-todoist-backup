@@ -36,8 +36,7 @@ jobs:
         with:
           version: 10.4.0
       - run: npx pnpm install
-      - run: npx pnpm lint
-      - run: npx pnpm build
+      - run: npx pnpm check
       - name: Install zip
         uses: montudor/action-zip@v1
       - name: Release
