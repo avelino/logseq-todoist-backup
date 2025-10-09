@@ -41,6 +41,7 @@ export async function writeBlocks(pageName: string, blocks: IBatchBlock[]) {
 
     let formatted = block.content;
     const existing = blockMap.get(todoistId);
+    let targetUuid: string | undefined;
     if (existing) {
       const existingDue = extractTodoistDue(existing.content ?? "");
       if (existingDue && !hasDueProperty(formatted)) {
@@ -48,16 +49,20 @@ export async function writeBlocks(pageName: string, blocks: IBatchBlock[]) {
       }
 
       await logseq.Editor.updateBlock(existing.uuid, formatted);
-      await syncComments(existing.uuid, block.children ?? []);
+      targetUuid = existing.uuid;
     } else {
       const created = await logseq.Editor.appendBlockInPage(page.uuid, formatted);
       if (created) {
         blockMap.set(todoistId, created);
-        await syncComments(created.uuid, block.children ?? []);
+        targetUuid = created.uuid;
       }
     }
 
     seenIds.add(todoistId);
+
+    if (targetUuid) {
+      await syncComments(targetUuid, block.children ?? []);
+    }
   }
 
   const obsoleteBlocks = [...blockMap.entries()].filter(([id]) => !seenIds.has(id));
