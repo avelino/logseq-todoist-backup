@@ -20,11 +20,17 @@ import { provideStyles, registerCommands, registerToolbar } from "./ui";
 let syncInProgress = false;
 
 const model = {
+  /**
+   * Triggers a manual Todoist backup sync from the command palette.
+   */
   async syncTodoistBackup() {
     await syncTodoist("manual");
   },
 };
 
+/**
+ * Registers plugin settings, UI, and schedules the initial sync.
+ */
 async function main() {
   logseq.useSettingsSchema(settingsSchema);
   logseq.provideModel(model);
@@ -41,7 +47,13 @@ async function main() {
   scheduleAutoSync((trigger) => syncTodoist(trigger));
 }
 
+/**
+ * Hooks plugin cleanup into Logseq and window lifecycle events.
+ */
 function registerLifecycle() {
+  /**
+   * Cancels any pending scheduled sync timers before unload.
+   */
   async function cleanup() {
     cancelScheduledSync();
   }
@@ -52,6 +64,11 @@ function registerLifecycle() {
   });
 }
 
+/**
+ * Synchronizes Todoist data with Logseq for manual and automatic triggers.
+ *
+ * @param trigger Indicates whether the sync was initiated manually or automatically.
+ */
 async function syncTodoist(trigger: "manual" | "auto") {
   if (syncInProgress) {
     if (trigger === "manual") {

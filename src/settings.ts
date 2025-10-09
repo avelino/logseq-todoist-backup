@@ -33,6 +33,9 @@ export const settingsSchema: SettingSchemaDesc[] = [
   },
 ];
 
+/**
+ * Reads settings and enriches them with a validated interval in milliseconds.
+ */
 export function readSettingsWithInterval() {
   const settings = (logseq.settings ?? {}) as PluginSettings;
   const token = settings.todoist_token?.trim();
@@ -42,6 +45,9 @@ export function readSettingsWithInterval() {
   return { token, pageName, intervalMs };
 }
 
+/**
+ * Reads sanitized settings without interval metadata for simple callers.
+ */
 export function readSettings() {
   const { token, pageName } = readSettingsWithInterval();
   return { token, pageName };

@@ -20,6 +20,12 @@ import {
   TodoistComment,
 } from "./todoist";
 
+/**
+ * Ensures the target Logseq page exists and writes the provided blocks.
+ *
+ * @param pageName Destination page for the Todoist backup.
+ * @param blocks Collection of blocks reflecting Todoist tasks and comments.
+ */
 export async function writeBlocks(pageName: string, blocks: IBatchBlock[]) {
   let page = await logseq.Editor.getPage(pageName);
   if (!page) {
@@ -83,6 +89,13 @@ export async function writeBlocks(pageName: string, blocks: IBatchBlock[]) {
   }
 }
 
+/**
+ * Builds block payloads for a set of Todoist tasks, including comments.
+ *
+ * @param tasks Tasks returned from Todoist ready for serialization.
+ * @param projectMap Mapping of project ids to names.
+ * @param labelMap Mapping of label ids or names to normalized names.
+ */
 export function buildBlocks(
   tasks: TodoistBackupTask[],
   projectMap: Map<string, string>,
@@ -108,6 +121,13 @@ export function buildBlocks(
   }));
 }
 
+/**
+ * Generates the main block content for a Todoist task, including properties.
+ *
+ * @param task Todoist task with optional completion metadata.
+ * @param projectMap Mapping of project ids to names.
+ * @param labelMap Mapping of label ids or names to normalized names.
+ */
 export function blockContent(
   task: TodoistBackupTask,
   projectMap: Map<string, string>,
@@ -161,6 +181,11 @@ export function blockContent(
   return [`${dateLogseqFormat} ${taskTitleLogseqFormat}`, ...properties].join("\n");
 }
 
+/**
+ * Creates child blocks containing Todoist comments for a task.
+ *
+ * @param task Todoist task enriched with comment data.
+ */
 function buildCommentBlocks(task: TodoistBackupTask): IBatchBlock[] {
   const comments = task.comments ?? [];
   if (comments.length === 0) {
@@ -186,6 +211,12 @@ function buildCommentBlocks(task: TodoistBackupTask): IBatchBlock[] {
   ];
 }
 
+/**
+ * Builds the markdown content for a single Todoist comment block.
+ *
+ * @param task Owning Todoist task used to resolve fallback ids.
+ * @param comment Comment information returned from Todoist.
+ */
 function commentContent(task: TodoistBackupTask, comment: TodoistComment) {
   const text = safeLinkText(safeText(comment.content));
   const url = buildCommentUrl(task, comment);
@@ -197,11 +228,22 @@ function commentContent(task: TodoistBackupTask, comment: TodoistComment) {
   return lines.join("\n");
 }
 
+/**
+ * Composes a direct Todoist URL pointing to a specific comment.
+ *
+ * @param task Owning Todoist task used as fallback for missing ids.
+ * @param comment Todoist comment metadata.
+ */
 function buildCommentUrl(task: TodoistBackupTask, comment: TodoistComment) {
   const taskId = String(comment.task_id ?? task.id);
   return `https://todoist.com/app/task/${taskId}/comment/${comment.id}`;
 }
 
+/**
+ * Normalizes comment timestamps to ISO strings when possible.
+ *
+ * @param value Timestamp string returned by Todoist.
+ */
 function formatCommentTimestamp(value: string) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
@@ -210,6 +252,12 @@ function formatCommentTimestamp(value: string) {
   return parsed.toISOString();
 }
 
+/**
+ * Synchronizes comment wrapper blocks for a given parent block.
+ *
+ * @param parentUuid Parent block uuid receiving comment children.
+ * @param children Prepared comment blocks to insert.
+ */
 async function syncComments(parentUuid: string, children: IBatchBlock[]) {
   const existing = await logseq.Editor.getBlock(parentUuid, { includeChildren: true });
   if (existing && existing.children) {
@@ -228,14 +276,23 @@ async function syncComments(parentUuid: string, children: IBatchBlock[]) {
   }
 }
 
+/**
+ * Type guard ensuring a value is a Logseq block entity.
+ */
 function isBlockEntity(value: BlockEntity | BlockUUIDTuple | undefined): value is BlockEntity {
   return Boolean(value && typeof value === "object" && "uuid" in value);
 }
 
+/**
+ * Detects blocks representing the Todoist comments wrapper.
+ */
 function isCommentWrapper(content: string) {
   return new RegExp(`^${TODOIST_COMMENTS_PROPERTY}::`, "m").test(content);
 }
 
+/**
+ * Converts comment timestamps to sortable numeric values.
+ */
 function commentTimestamp(value: string | null | undefined) {
   if (!value) {
     return Number.POSITIVE_INFINITY;
@@ -244,6 +301,9 @@ function commentTimestamp(value: string | null | undefined) {
   return Number.isFinite(parsed) ? parsed : Number.POSITIVE_INFINITY;
 }
 
+/**
+ * Determines the primary date string to display for a task block.
+ */
 function resolvePrimaryDate(task: TodoistBackupTask) {
   const dueFormatted = formatDue(task.due);
   if (dueFormatted) {
@@ -264,6 +324,9 @@ function resolvePrimaryDate(task: TodoistBackupTask) {
   return "";
 }
 
+/**
+ * Builds the property value for the Todoist due date when available.
+ */
 function resolveDuePropertyValue(task: TodoistBackupTask) {
   const explicitDue = formatDue(task.due);
   if (explicitDue) {
@@ -272,6 +335,9 @@ function resolveDuePropertyValue(task: TodoistBackupTask) {
   return undefined;
 }
 
+/**
+ * Formats Todoist completion dates to `YYYY-MM-DD` when valid.
+ */
 function formatCompletedDate(value: string | null | undefined) {
   if (!value) {
     return "";
@@ -283,11 +349,17 @@ function formatCompletedDate(value: string | null | undefined) {
   return parsed.toISOString().slice(0, 10);
 }
 
+/**
+ * Extracts the Todoist task identifier from block content.
+ */
 export function extractTodoistId(content: string) {
   const match = content.match(new RegExp(`^${TODOIST_ID_PROPERTY}::\\s*(.+)$`, "mi"));
   return match ? match[1].trim() : undefined;
 }
 
+/**
+ * Reads the persisted Todoist status property from block content.
+ */
 function extractTodoistStatus(content: string): TodoistBackupTask["status"] | undefined {
   const match = content.match(new RegExp(`^${TODOIST_STATUS_PROPERTY}::\\s*(.+)$`, "mi"));
   const value = match ? match[1].trim().toLowerCase() : undefined;
@@ -297,15 +369,24 @@ function extractTodoistStatus(content: string): TodoistBackupTask["status"] | un
   return undefined;
 }
 
+/**
+ * Checks whether a block contains the Todoist completion property.
+ */
 function hasCompletedProperty(content: string) {
   return new RegExp(`^${TODOIST_COMPLETED_PROPERTY}::\\s*(.+)$`, "mi").test(content);
 }
 
+/**
+ * Retrieves the Todoist due property value from block content.
+ */
 function extractTodoistDue(content: string) {
   const match = content.match(new RegExp(`^${TODOIST_DUE_PROPERTY}::\\s*(.+)$`, "mi"));
   return match ? sanitizeDueValue(match[1]) : undefined;
 }
 
+/**
+ * Injects or replaces due information when blocks lack explicit due data.
+ */
 function applyDueFallback(content: string, dueValue: string) {
   const normalized = sanitizeDueValue(dueValue);
   if (!normalized) {
@@ -336,6 +417,9 @@ function applyDueFallback(content: string, dueValue: string) {
   return lines.join("\n");
 }
 
+/**
+ * Normalizes due strings by trimming and removing Logseq wrappers.
+ */
 function sanitizeDueValue(value: string | null | undefined) {
   if (!value) {
     return "";
@@ -350,10 +434,16 @@ function sanitizeDueValue(value: string | null | undefined) {
   return trimmed;
 }
 
+/**
+ * Determines whether a block already includes the Todoist due property.
+ */
 function hasDueProperty(content: string) {
   return new RegExp(`^${TODOIST_DUE_PROPERTY}::`, "i").test(content);
 }
 
+/**
+ * Builds a map of Todoist ids to existing Logseq block entities.
+ */
 export function buildBlockMap(tree: BlockEntity[]) {
   const map = new Map<string, BlockEntity>();
   for (const block of tree) {
@@ -366,6 +456,9 @@ export function buildBlockMap(tree: BlockEntity[]) {
   return map;
 }
 
+/**
+ * Resolves label names for a task using the provided label map.
+ */
 function resolveLabels(task: TodoistBackupTask, labelMap: Map<string, string>) {
   const values = task.labels ?? task.label_ids ?? [];
   const names: string[] = [];

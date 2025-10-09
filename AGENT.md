@@ -22,6 +22,7 @@ Code Structure Rules
 - UI composition (`registerToolbar`, `provideStyles`, etc.) remains in `ui.ts`; avoid mixing DOM strings elsewhere.
 - Use TypeScript types exported from `todoist.ts` when handling Todoist entities; never duplicate type shapes.
 - Prefer pure functions returning new data over mutating inputs unless interacting with Logseq APIs that require mutation.
+- Document every function with a concise JSDoc block describing purpose and parameters.
 
 TypeScript & Validation Expectations
 

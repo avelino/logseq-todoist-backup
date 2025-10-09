@@ -91,6 +91,13 @@ export type FetchCommentsOptions = {
   retryLimit?: number;
 };
 
+/**
+ * Fetches paginated resources from Todoist REST endpoints.
+ *
+ * @param path API path to fetch.
+ * @param token Todoist API token.
+ * @param options Additional fetch options such as base url and parameters.
+ */
 export async function fetchPaginated<T>(
   path: string,
   token: string,
@@ -136,6 +143,13 @@ export async function fetchPaginated<T>(
   return items;
 }
 
+/**
+ * Fetches and sanitizes comments for the specified Todoist tasks.
+ *
+ * @param taskIds Identifiers of tasks whose comments will be requested.
+ * @param token Todoist API token.
+ * @param options Optional retry configuration for transient failures.
+ */
 export async function fetchTaskComments(
   taskIds: TodoistId[],
   token: string,
@@ -191,6 +205,9 @@ export async function fetchTaskComments(
   return map;
 }
 
+/**
+ * Extracts data arrays from various Todoist pagination formats.
+ */
 export function extractItems<T>(body: PaginatedResponse<T> | T[]): T[] {
   if (Array.isArray(body)) {
     return body;
@@ -214,6 +231,9 @@ export function extractItems<T>(body: PaginatedResponse<T> | T[]): T[] {
   return [];
 }
 
+/**
+ * Validates and normalizes a raw comment payload from Todoist.
+ */
 function sanitizeComment(comment: RawTodoistComment, fallbackTaskId: string): TodoistComment | undefined {
   if (!comment) {
     return undefined;
@@ -235,6 +255,9 @@ function sanitizeComment(comment: RawTodoistComment, fallbackTaskId: string): To
   };
 }
 
+/**
+ * Reads the pagination cursor from Todoist responses when present.
+ */
 export function getCursor<T>(body: PaginatedResponse<T> | T[]): string | undefined {
   if (Array.isArray(body)) {
     return undefined;
@@ -244,6 +267,9 @@ export function getCursor<T>(body: PaginatedResponse<T> | T[]): string | undefin
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
+/**
+ * Builds a map of Todoist ids to names for projects and similar collections.
+ */
 export function buildNameMap(collection: Array<{ id: TodoistId; name: string }>) {
   const map = new Map<string, string>();
   for (const item of collection) {
@@ -252,6 +278,9 @@ export function buildNameMap(collection: Array<{ id: TodoistId; name: string }>)
   return map;
 }
 
+/**
+ * Combines label ids and names into a lookup map for quick resolution.
+ */
 export function buildLabelMap(labels: TodoistLabel[]) {
   const map = new Map<string, string>();
   for (const label of labels) {
@@ -262,6 +291,9 @@ export function buildLabelMap(labels: TodoistLabel[]) {
   return map;
 }
 
+/**
+ * Converts a completed task payload into the shared backup task shape.
+ */
 export function normalizeCompletedTask(item: TodoistCompletedItem): TodoistBackupTask | undefined {
   const source = item.task ?? {};
   const id = source.id ?? item.task_id;
@@ -286,6 +318,9 @@ export function normalizeCompletedTask(item: TodoistCompletedItem): TodoistBacku
   };
 }
 
+/**
+ * Retrieves completed Todoist tasks using the sync API.
+ */
 export async function fetchCompletedTasks(token: string): Promise<TodoistBackupTask[]> {
   const items = await fetchPaginated<TodoistCompletedItem>("/completed/get_all", token, {
     baseUrl: TODOIST_SYNC_API_BASE,
@@ -299,6 +334,9 @@ export async function fetchCompletedTasks(token: string): Promise<TodoistBackupT
     .filter((task): task is TodoistBackupTask => Boolean(task));
 }
 
+/**
+ * Merges active and completed Todoist tasks into a unified task list.
+ */
 export function mergeBackupTasks(
   active: TodoistTask[],
   completed: TodoistBackupTask[]
@@ -329,6 +367,9 @@ export function mergeBackupTasks(
   return [...map.values()];
 }
 
+/**
+ * Converts due information into a numeric timestamp for sorting.
+ */
 export function dueTimestamp(due?: TodoistDue | null) {
   if (!due) return Number.POSITIVE_INFINITY;
   const { datetime, date } = due;
@@ -349,6 +390,9 @@ export function dueTimestamp(due?: TodoistDue | null) {
   return Number.POSITIVE_INFINITY;
 }
 
+/**
+ * Formats Todoist due information into `YYYY-MM-DD` when possible.
+ */
 export function formatDue(due?: TodoistDue | null) {
   if (!due) return "";
   if (due.date && ISO_DATE_PATTERN.test(due.date)) {
@@ -375,11 +419,17 @@ export function formatDue(due?: TodoistDue | null) {
   return "";
 }
 
+/**
+ * Trims whitespace and normalizes line breaks in free-text inputs.
+ */
 export function safeText(value: string | null | undefined) {
   if (!value) return "";
   return value.replace(/\s+/g, " ").replace(/[\r\n]+/g, " ").trim();
 }
 
+/**
+ * Sanitizes text while preserving balanced Logseq and Markdown link syntax.
+ */
 export function safeLinkText(value: string | null | undefined) {
   const sanitized = safeText(value);
   if (!sanitized) return "";
@@ -425,6 +475,9 @@ export function safeLinkText(value: string | null | undefined) {
   return safeText(pieces.join(""));
 }
 
+/**
+ * Normalizes label names into Logseq-friendly tags.
+ */
 export function formatLabelTag(label: string) {
   const sanitized = label.replace(/[^\w\s-]/g, " ").trim();
   if (!sanitized) return "";

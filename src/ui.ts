@@ -5,6 +5,9 @@ import {
   TOOLBAR_KEY,
 } from "./constants";
 
+/**
+ * Registers toolbar styles used by the plugin UI components.
+ */
 export function provideStyles() {
   logseq.provideStyle(`
     .${TOOLBAR_BUTTON_CLASS} {
@@ -36,6 +39,11 @@ export function provideStyles() {
   `);
 }
 
+/**
+ * Registers the command palette entry responsible for manual syncs.
+ *
+ * @param onSync Handler executed when the command palette item is invoked.
+ */
 export function registerCommands(onSync: () => Promise<void>) {
   logseq.App.registerCommandPalette(
     {
@@ -46,6 +54,11 @@ export function registerCommands(onSync: () => Promise<void>) {
   );
 }
 
+/**
+ * Registers the toolbar button that triggers the Todoist sync.
+ *
+ * @param iconUrl Absolute URL to the toolbar icon resource.
+ */
 export function registerToolbar(iconUrl: string) {
   logseq.App.registerUIItem("toolbar", {
     key: TOOLBAR_KEY,
