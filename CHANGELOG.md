@@ -1,3 +1,11 @@
+## [1.0.2](https://github.com/avelino/logseq-todoist-backup/compare/v1.0.1...v1.0.2) (2025-10-09)
+
+
+### Bug Fixes
+
+* migrate ESLint config to eslint.config.mjs ([77fe1c3](https://github.com/avelino/logseq-todoist-backup/commit/77fe1c3e30f9fd4f1bd5152ba6a6aaf2973475d3))
+* preserve completed task history and status in Logseq sync ([b34da58](https://github.com/avelino/logseq-todoist-backup/commit/b34da58f9020cf3afd7fc25cf5ff0956da97d702))
+
 ## [1.0.1](https://github.com/avelino/logseq-todoist-backup/compare/v1.0.0...v1.0.1) (2025-10-08)
 
 
