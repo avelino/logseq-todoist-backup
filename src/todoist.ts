@@ -1,4 +1,9 @@
-import { TODOIST_API_BASE, ISO_DATE_PATTERN, TODOIST_SYNC_API_BASE } from "./constants";
+import {
+  TODOIST_API_BASE,
+  ISO_DATE_PATTERN,
+  TODOIST_REST_API_BASE,
+  TODOIST_SYNC_API_BASE,
+} from "./constants";
 
 export type TodoistId = string | number;
 
@@ -20,6 +25,20 @@ export type TodoistTask = {
   url?: string;
 };
 
+export type TodoistComment = {
+  id: TodoistId;
+  task_id: TodoistId;
+  content: string;
+  posted_at: string | null;
+};
+
+type RawTodoistComment = {
+  id?: TodoistId | null;
+  task_id?: TodoistId | null;
+  content?: string | null;
+  posted_at?: string | null;
+};
+
 export type TodoistCompletedItem = {
   task_id?: TodoistId;
   content?: string;
@@ -38,6 +57,7 @@ export type TodoistBackupTask = TodoistTask & {
   completed_date?: string | null;
   status?: "active" | "completed" | "deleted";
   fallbackDue?: string;
+  comments?: TodoistComment[];
 };
 
 export type TodoistProject = {
@@ -65,6 +85,10 @@ export type FetchPaginatedOptions = {
   searchParams?: Record<string, string | undefined>;
   method?: "GET" | "POST";
   body?: unknown;
+};
+
+export type FetchCommentsOptions = {
+  retryLimit?: number;
 };
 
 export async function fetchPaginated<T>(
@@ -112,6 +136,61 @@ export async function fetchPaginated<T>(
   return items;
 }
 
+export async function fetchTaskComments(
+  taskIds: TodoistId[],
+  token: string,
+  options: FetchCommentsOptions = {}
+): Promise<Map<string, TodoistComment[]>> {
+  const map = new Map<string, TodoistComment[]>();
+  if (taskIds.length === 0) {
+    return map;
+  }
+
+  const retryLimit = Math.max(0, options.retryLimit ?? 1);
+  const idsToFetch = taskIds
+    .map((id) => String(id))
+    .filter((value, index, self) => self.indexOf(value) === index);
+  const queue = [...idsToFetch];
+  const attempts = new Map<string, number>();
+
+  while (queue.length > 0) {
+    const taskId = queue.shift();
+    if (!taskId) {
+      continue;
+    }
+
+    try {
+      const comments = await fetchPaginated<TodoistComment>("/comments", token, {
+        searchParams: {
+          task_id: taskId,
+        },
+        baseUrl: TODOIST_REST_API_BASE,
+      });
+
+      const sanitized = comments
+        .map((comment) => sanitizeComment(comment, taskId))
+        .filter((comment): comment is TodoistComment => Boolean(comment));
+
+      map.set(taskId, sanitized);
+    } catch (error) {
+      const currentAttempts = attempts.get(taskId) ?? 0;
+      const nextAttempts = currentAttempts + 1;
+      attempts.set(taskId, nextAttempts);
+      if (nextAttempts <= retryLimit) {
+        queue.push(taskId);
+      } else {
+        console.error(
+          "[logseq-todoist-backup] failed to fetch comments for task",
+          taskId,
+          error
+        );
+      }
+    }
+  }
+
+  return map;
+}
+
 export function extractItems<T>(body: PaginatedResponse<T> | T[]): T[] {
   if (Array.isArray(body)) {
     return body;
@@ -133,6 +212,27 @@ export function extractItems<T>(body: PaginatedResponse<T> | T[]): T[] {
   }
 
   return [];
+}
+
+function sanitizeComment(comment: RawTodoistComment, fallbackTaskId: string): TodoistComment | undefined {
+  if (!comment) {
+    return undefined;
+  }
+  const id = comment.id;
+  if (id === null || id === undefined) {
+    return undefined;
+  }
+  const taskId = comment.task_id ?? fallbackTaskId;
+  if (taskId === null || taskId === undefined) {
+    return undefined;
+  }
+  const content = safeText(comment.content ?? "");
+  return {
+    id,
+    task_id: taskId,
+    content,
+    posted_at: comment.posted_at ?? null,
+  };
 }
 
 export function getCursor<T>(body: PaginatedResponse<T> | T[]): string | undefined {

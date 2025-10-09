@@ -4,6 +4,7 @@ import { buildBlocks, writeBlocks } from "./blocks";
 import {
   buildLabelMap,
   buildNameMap,
+  fetchTaskComments,
   fetchCompletedTasks,
   fetchPaginated,
   mergeBackupTasks,
@@ -88,7 +89,17 @@ async function syncTodoist(trigger: "manual" | "auto") {
 
     const backupTasks: TodoistBackupTask[] = mergeBackupTasks(tasks, completedTasks);
 
-    const blocks = buildBlocks(backupTasks, projectMap, labelMap);
+    const commentsMap = await fetchTaskComments(
+      backupTasks.map((task) => task.id),
+      token
+    );
+
+    const enrichedTasks = backupTasks.map((task) => ({
+      ...task,
+      comments: commentsMap.get(String(task.id)) ?? [],
+    }));
+
+    const blocks = buildBlocks(enrichedTasks, projectMap, labelMap);
     await writeBlocks(pageName, blocks);
 
     if (trigger === "manual") {

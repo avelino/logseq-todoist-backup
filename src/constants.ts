@@ -1,5 +1,6 @@
 export const TODOIST_API_BASE = "https://api.todoist.com/api/v1";
 export const TODOIST_SYNC_API_BASE = "https://api.todoist.com/sync/v9";
+export const TODOIST_REST_API_BASE = "https://api.todoist.com/rest/v2";
 export const DEFAULT_PAGE_NAME = "todoist";
 export const TOOLBAR_KEY = "logseq-todoist-backup-sync";
 export const TOOLBAR_BUTTON_CLASS = "logseq-todoist-backup-button";
@@ -9,5 +10,8 @@ export const TODOIST_ID_PROPERTY = "todoist-id";
 export const TODOIST_COMPLETED_PROPERTY = "todoist-completed";
 export const TODOIST_STATUS_PROPERTY = "todoist-status";
 export const TODOIST_DUE_PROPERTY = "todoist-due";
+export const TODOIST_COMMENTS_PROPERTY = "todoist-comments";
+export const TODOIST_COMMENT_ID_PROPERTY = "todoist-comment-id";
+export const TODOIST_COMMENT_POSTED_PROPERTY = "todoist-comment-posted";
 export const PLACEHOLDER_CONTENT = "No tasks found.";
 export const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
