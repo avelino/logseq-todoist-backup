@@ -38,6 +38,7 @@ Quality Gates Before Submitting Changes
 - Run `npx pnpm install` if dependencies changed or a new workspace is cloned.
 - Run `npx pnpm exec eslint ./src --ext .ts` to ensure zero lint errors.
 - Run `npx pnpm build` to confirm TypeScript type-check passes and bundle succeeds.
+- Add `"type": "module"` to `package.json` if Node warns about ESM config files.
 - For behavioral changes, manually test within Logseq if possible: trigger manual sync, confirm automatic sync scheduling, verify block updates/deletions.
 
 Development Conventions
