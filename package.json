@@ -4,13 +4,16 @@
   "main": "dist/index.html",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build"
+    "build": "tsc && vite build",
+    "lint": "eslint ./src --ext .ts",
+    "check": "pnpm lint && pnpm build"
   },
   "license": "MIT",
   "dependencies": {
     "@logseq/libs": "^0.0.17"
   },
   "devDependencies": {
+    "@eslint/js": "9.37.0",
     "@semantic-release/changelog": "6.0.3",
     "@semantic-release/exec": "7.1.0",
     "@semantic-release/git": "10.0.1",
@@ -19,7 +22,8 @@
     "@typescript-eslint/eslint-plugin": "8.45.0",
     "@typescript-eslint/parser": "8.45.0",
     "conventional-changelog-conventionalcommits": "9.1.0",
-    "eslint": "8.57.1",
+    "eslint": "9.37.0",
+    "typescript-eslint": "8.45.0",
     "semantic-release": "24.2.9",
     "typescript": "5.9.3",
     "vite": "7.1.9",
