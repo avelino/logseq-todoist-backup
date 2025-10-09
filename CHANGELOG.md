@@ -1,3 +1,14 @@
+## [1.0.3](https://github.com/avelino/logseq-todoist-backup/compare/v1.0.2...v1.0.3) (2025-10-09)
+
+
+### Bug Fixes
+
+* **ci:** add lint step to GitHub Actions and update agent guidelines ([a152b55](https://github.com/avelino/logseq-todoist-backup/commit/a152b5509053387813a842b70d6627f181686a9f))
+* ensure comment blocks are updated for both new and existing tasks ([4ba9923](https://github.com/avelino/logseq-todoist-backup/commit/4ba9923ef6b4a4bdd29d4fee0cc13d400288a06d))
+* ensure comment blocks are updated for both new and existing tasks ([cc6c18c](https://github.com/avelino/logseq-todoist-backup/commit/cc6c18c95285685a1880bb77923a146c994073fc))
+* migrate ESLint config to eslint.config.mjs ([36c99ba](https://github.com/avelino/logseq-todoist-backup/commit/36c99ba9560894dff1677693c982fa395ad44c4b))
+* preserve completed task history and status in Logseq sync ([a32eb33](https://github.com/avelino/logseq-todoist-backup/commit/a32eb331971bcebaac3a80aee7e04e65a89a872f))
+
 ## [1.0.2](https://github.com/avelino/logseq-todoist-backup/compare/v1.0.1...v1.0.2) (2025-10-09)
 
 
