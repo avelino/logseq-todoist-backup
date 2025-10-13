@@ -6,6 +6,8 @@ Project Snapshot
 - Logseq plugin written in strict TypeScript, bundled with Vite (`npx pnpm build`).
 - Main entry: `src/main.ts`; supporting modules: `todoist.ts`, `blocks.ts`, `settings.ts`, `scheduler.ts`, `ui.ts`, `constants.ts`.
 - Interacts with Logseq runtime (`logseq` global) for UI, scheduling, and page mutations; communicates with Todoist REST API v1 via HTTPS.
+- Plugin setting `include_comments` controls whether Todoist comments are fetched during sync (default `false`).
+- When comments are enabled, `comments_collapsed` determines if the wrapper block starts collapsed (default `true`).
 
 Environment & Tooling
 
@@ -22,7 +24,7 @@ Code Structure Rules
 - UI composition (`registerToolbar`, `provideStyles`, etc.) remains in `ui.ts`; avoid mixing DOM strings elsewhere.
 - Use TypeScript types exported from `todoist.ts` when handling Todoist entities; never duplicate type shapes.
 - Prefer pure functions returning new data over mutating inputs unless interacting with Logseq APIs that require mutation.
-- Document every function with a concise JSDoc block describing purpose and parameters.
+- Document every function with a concise JSDoc block describing purpose and parameters. Include comment formatting expectations for comment blocks: prefix each Todoist comment with `[todoist](url)` and append sanitized text when present.
 
 TypeScript & Validation Expectations
 
@@ -45,6 +47,7 @@ Quality Gates Before Submitting Changes
 Development Conventions
 
 - Avoid introducing global state beyond what already exists (`syncInProgress`, `scheduledSync`); prefer closures or module-scoped consts.
+- Automatic background syncs must preserve the user's editing focus; capture the editing cursor before running and restore it afterward.
 - Use template literals only when placeholders are necessary; keep strings ASCII.
 - Keep network utilities reusable; any new endpoint helpers belong in `todoist.ts` with shared pagination handling.
 - When updating existing blocks, ensure `todoist-id::` remains the canonical identifier; changes to block formatting must stay backward compatible and preserve completed tasks.
