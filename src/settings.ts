@@ -6,6 +6,7 @@ export type PluginSettings = {
   todoist_token?: string;
   page_name?: string;
   sync_interval_minutes?: number;
+  include_comments?: boolean;
 };
 
 export const settingsSchema: SettingSchemaDesc[] = [
@@ -31,6 +32,13 @@ export const settingsSchema: SettingSchemaDesc[] = [
     title: "Sync interval (min)",
     description: "Minutes between automatic background sync executions.",
   },
+  {
+    key: "include_comments",
+    type: "boolean",
+    default: false,
+    title: "Download comments",
+    description: "Include Todoist task comments in the backup page.",
+  },
 ];
 
 /**
@@ -42,13 +50,14 @@ export function readSettingsWithInterval() {
   const pageName = settings.page_name?.trim() || DEFAULT_PAGE_NAME;
   const intervalMinutes = Number(settings.sync_interval_minutes) || 5;
   const intervalMs = Math.max(intervalMinutes, 1) * 60 * 1000;
-  return { token, pageName, intervalMs };
+  const includeComments = Boolean(settings.include_comments);
+  return { token, pageName, intervalMs, includeComments };
 }
 
 /**
  * Reads sanitized settings without interval metadata for simple callers.
  */
 export function readSettings() {
-  const { token, pageName } = readSettingsWithInterval();
-  return { token, pageName };
+  const { token, pageName, includeComments } = readSettingsWithInterval();
+  return { token, pageName, includeComments };
 }

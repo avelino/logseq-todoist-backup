@@ -8,16 +8,98 @@ import {
   fetchCompletedTasks,
   fetchPaginated,
   mergeBackupTasks,
+  TodoistBackupTask,
   TodoistLabel,
   TodoistProject,
   TodoistTask,
-  TodoistBackupTask,
 } from "./todoist";
 import { readSettings, settingsSchema } from "./settings";
 import { cancelScheduledSync, scheduleAutoSync } from "./scheduler";
 import { provideStyles, registerCommands, registerToolbar } from "./ui";
 
 let syncInProgress = false;
+
+type EditingState = {
+  blockUuid: string;
+  cursorPosition?: number;
+};
+
+/**
+ * Captures the current editing state so it can be restored after background syncs.
+ */
+async function captureEditingState(): Promise<EditingState | undefined> {
+  try {
+    const editing = await logseq.Editor.checkEditing();
+    const blockUuid = typeof editing === "string" && editing.length > 0 ? editing : undefined;
+    if (!blockUuid) {
+      return undefined;
+    }
+
+    const cursor = await logseq.Editor.getEditingCursorPosition().catch(() => null);
+    const cursorPosition = cursor && typeof cursor.pos === "number" ? cursor.pos : undefined;
+
+    return { blockUuid, cursorPosition };
+  } catch (error) {
+    console.error("[logseq-todoist-backup] failed to capture editing state", error);
+    return undefined;
+  }
+}
+
+/**
+ * Restores editing focus when automatic sync temporarily steals the cursor.
+ *
+ * @param state Previously captured editing information.
+ */
+async function restoreEditingState(state: EditingState | undefined) {
+  if (!state) {
+    return;
+  }
+
+  try {
+    const currentEditing = await logseq.Editor.checkEditing();
+    if (typeof currentEditing === "string" && currentEditing.length > 0) {
+      return;
+    }
+
+    const block = await logseq.Editor.getBlock(state.blockUuid, { includeChildren: false });
+    if (!block) {
+      return;
+    }
+
+    if (typeof state.cursorPosition === "number" && Number.isFinite(state.cursorPosition)) {
+      await logseq.Editor.editBlock(state.blockUuid, { pos: state.cursorPosition });
+    } else {
+      await logseq.Editor.editBlock(state.blockUuid);
+    }
+  } catch (error) {
+    console.error("[logseq-todoist-backup] failed to restore editing focus", error);
+  }
+}
+
+/**
+ * Fetches Todoist comments and merges them into the provided task list.
+ *
+ * @param tasks Todoist tasks to enrich with comment data.
+ * @param token Todoist API token used for authenticated requests.
+ */
+async function enrichTasksWithComments(
+  tasks: TodoistBackupTask[],
+  token: string
+) {
+  if (tasks.length === 0) {
+    return tasks;
+  }
+
+  const commentsMap = await fetchTaskComments(
+    tasks.map((task) => task.id),
+    token
+  );
+
+  return tasks.map((task) => ({
+    ...task,
+    comments: commentsMap.get(String(task.id)) ?? [],
+  }));
+}
 
 const model = {
   /**
@@ -77,7 +159,7 @@ async function syncTodoist(trigger: "manual" | "auto") {
     return;
   }
 
-  const { token, pageName } = readSettings();
+  const { token, pageName, includeComments } = readSettings();
   if (!token) {
     if (trigger === "manual") {
       await logseq.UI.showMsg(
@@ -93,6 +175,11 @@ async function syncTodoist(trigger: "manual" | "auto") {
     await logseq.UI.showMsg("Syncing Todoist data...", "info");
   }
 
+  let editingState: EditingState | undefined;
+  if (trigger === "auto") {
+    editingState = await captureEditingState();
+  }
+
   try {
     const [tasks, completedTasks, projects, labels] = await Promise.all([
       fetchPaginated<TodoistTask>("/tasks", token),
@@ -106,17 +193,11 @@ async function syncTodoist(trigger: "manual" | "auto") {
 
     const backupTasks: TodoistBackupTask[] = mergeBackupTasks(tasks, completedTasks);
 
-    const commentsMap = await fetchTaskComments(
-      backupTasks.map((task) => task.id),
-      token
-    );
+    const tasksForBlocks = includeComments
+      ? await enrichTasksWithComments(backupTasks, token)
+      : backupTasks;
 
-    const enrichedTasks = backupTasks.map((task) => ({
-      ...task,
-      comments: commentsMap.get(String(task.id)) ?? [],
-    }));
-
-    const blocks = buildBlocks(enrichedTasks, projectMap, labelMap);
+    const blocks = buildBlocks(tasksForBlocks, projectMap, labelMap);
     await writeBlocks(pageName, blocks);
 
     if (trigger === "manual") {
@@ -133,6 +214,9 @@ async function syncTodoist(trigger: "manual" | "auto") {
     await logseq.UI.showMsg(`Failed to sync Todoist: ${message}`, "error");
   } finally {
     syncInProgress = false;
+    if (trigger === "auto") {
+      await restoreEditingState(editingState);
+    }
   }
 }
 

@@ -20,6 +20,8 @@ import {
   TodoistComment,
 } from "./todoist";
 
+type CommentWrapperBlock = IBatchBlock;
+
 /**
  * Ensures the target Logseq page exists and writes the provided blocks.
  *
@@ -67,7 +69,8 @@ export async function writeBlocks(pageName: string, blocks: IBatchBlock[]) {
     seenIds.add(todoistId);
 
     if (targetUuid) {
-      await syncComments(targetUuid, block.children ?? []);
+      const children = block.children ?? [];
+      await syncComments(targetUuid, children);
     }
   }
 
@@ -186,7 +189,7 @@ export function blockContent(
  *
  * @param task Todoist task enriched with comment data.
  */
-function buildCommentBlocks(task: TodoistBackupTask): IBatchBlock[] {
+function buildCommentBlocks(task: TodoistBackupTask): CommentWrapperBlock[] {
   const comments = task.comments ?? [];
   if (comments.length === 0) {
     return [];
@@ -201,14 +204,23 @@ function buildCommentBlocks(task: TodoistBackupTask): IBatchBlock[] {
     return String(a.id).localeCompare(String(b.id));
   });
 
-  return [
-    {
-      content: `${TODOIST_COMMENTS_PROPERTY}:: ${sorted.length}`,
-      children: sorted.map((comment) => ({
-        content: commentContent(task, comment),
-      })),
-    },
-  ];
+  const wrapper: CommentWrapperBlock = {
+    content: buildCommentWrapperContent(sorted.length),
+    children: sorted.map((comment) => ({
+      content: commentContent(task, comment),
+    })),
+  };
+
+  return [wrapper];
+}
+
+/**
+ * Builds the wrapper block content for the Todoist comments section.
+ *
+ * @param commentCount Total number of comments attached to the task.
+ */
+function buildCommentWrapperContent(commentCount: number) {
+  return ["comments...", `${TODOIST_COMMENTS_PROPERTY}:: ${commentCount}`].join("\n");
 }
 
 /**
@@ -218,9 +230,12 @@ function buildCommentBlocks(task: TodoistBackupTask): IBatchBlock[] {
  * @param comment Comment information returned from Todoist.
  */
 function commentContent(task: TodoistBackupTask, comment: TodoistComment) {
-  const text = safeLinkText(safeText(comment.content));
+  const sanitizedText = safeText(comment.content);
+  const formattedText = sanitizedText ? safeLinkText(sanitizedText) : "";
   const url = buildCommentUrl(task, comment);
-  const lines = [`[${text}](${url})`, `${TODOIST_COMMENT_ID_PROPERTY}:: ${comment.id}`];
+  const prefix = `[todoist](${url})`;
+  const commentLine = formattedText ? `${prefix} ${formattedText}` : prefix;
+  const lines = [commentLine, `${TODOIST_COMMENT_ID_PROPERTY}:: ${comment.id}`];
   if (comment.posted_at) {
     const formatted = formatCommentTimestamp(comment.posted_at);
     lines.push(`${TODOIST_COMMENT_POSTED_PROPERTY}:: ${formatted}`);
@@ -272,7 +287,9 @@ async function syncComments(parentUuid: string, children: IBatchBlock[]) {
   }
 
   if (children.length > 0) {
-    await logseq.Editor.insertBatchBlock(parentUuid, children, { sibling: false });
+    await logseq.Editor.insertBatchBlock(parentUuid, children, {
+      sibling: false,
+    });
   }
 }
 
@@ -287,7 +304,7 @@ function isBlockEntity(value: BlockEntity | BlockUUIDTuple | undefined): value i
  * Detects blocks representing the Todoist comments wrapper.
  */
 function isCommentWrapper(content: string) {
-  return new RegExp(`^${TODOIST_COMMENTS_PROPERTY}::`, "m").test(content);
+  return new RegExp(`(?:^|\n)${TODOIST_COMMENTS_PROPERTY}::`, "m").test(content);
 }
 
 /**
