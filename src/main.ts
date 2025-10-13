@@ -12,6 +12,7 @@ import {
   TodoistLabel,
   TodoistProject,
   TodoistTask,
+  safeText,
 } from "./todoist";
 import { readSettings, settingsSchema } from "./settings";
 import { cancelScheduledSync, scheduleAutoSync } from "./scheduler";
@@ -159,7 +160,7 @@ async function syncTodoist(trigger: "manual" | "auto") {
     return;
   }
 
-  const { token, pageName, includeComments } = readSettings();
+  const { token, pageName, includeComments, excludePatterns } = readSettings();
   if (!token) {
     if (trigger === "manual") {
       await logseq.UI.showMsg(
@@ -193,9 +194,11 @@ async function syncTodoist(trigger: "manual" | "auto") {
 
     const backupTasks: TodoistBackupTask[] = mergeBackupTasks(tasks, completedTasks);
 
+    const filteredTasks = applyTitleExclusions(backupTasks, excludePatterns);
+
     const tasksForBlocks = includeComments
-      ? await enrichTasksWithComments(backupTasks, token)
-      : backupTasks;
+      ? await enrichTasksWithComments(filteredTasks, token)
+      : filteredTasks;
 
     const blocks = buildBlocks(tasksForBlocks, projectMap, labelMap);
     await writeBlocks(pageName, blocks);
@@ -218,6 +221,33 @@ async function syncTodoist(trigger: "manual" | "auto") {
       await restoreEditingState(editingState);
     }
   }
+}
+
+/**
+ * Removes tasks whose sanitized titles match configured exclusion patterns.
+ *
+ * @param tasks Todoist tasks combined from active and completed sources.
+ * @param patterns Compiled regular expressions for titles to skip.
+ */
+function applyTitleExclusions(tasks: TodoistBackupTask[], patterns: RegExp[] | undefined) {
+  if (!patterns || patterns.length === 0) {
+    return tasks;
+  }
+
+  return tasks.filter((task) => {
+    const title = safeText(task.content);
+    if (!title) {
+      return true;
+    }
+
+    for (const pattern of patterns) {
+      pattern.lastIndex = 0;
+      if (pattern.test(title)) {
+        return false;
+      }
+    }
+    return true;
+  });
 }
 
 logseq.ready(main)
