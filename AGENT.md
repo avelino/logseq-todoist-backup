@@ -7,6 +7,7 @@ Project Snapshot
 - Main entry: `src/main.ts`; supporting modules: `todoist.ts`, `blocks.ts`, `settings.ts`, `scheduler.ts`, `ui.ts`, `constants.ts`.
 - Interacts with Logseq runtime (`logseq` global) for UI, scheduling, and page mutations; communicates with Todoist REST API v1 via HTTPS.
 - Plugin setting `include_comments` controls whether Todoist comments are fetched during sync (default `false`).
+- Plugin setting `exclude_title_patterns` accepts newline-separated regex patterns to skip Todoist tasks whose titles match.
 - When comments are enabled, `comments_collapsed` determines if the wrapper block starts collapsed (default `true`).
 
 Environment & Tooling
