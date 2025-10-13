@@ -1,3 +1,11 @@
+# [1.1.0](https://github.com/avelino/logseq-todoist-backup/compare/v1.0.3...v1.1.0) (2025-10-13)
+
+
+### Features
+
+* implement todoist comment sync and preserve editing focus ([f66c75f](https://github.com/avelino/logseq-todoist-backup/commit/f66c75f0bbe672c1d67d89e50d63996c96ccdd07))
+* **settings:** add exclude_title_patterns for flexible task skipping ([6e150b9](https://github.com/avelino/logseq-todoist-backup/commit/6e150b9cbf856018a52aaf9a6f2cc8031acc7ffd))
+
 ## [1.0.3](https://github.com/avelino/logseq-todoist-backup/compare/v1.0.2...v1.0.3) (2025-10-09)
 
 
