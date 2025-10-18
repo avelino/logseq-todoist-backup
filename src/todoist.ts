@@ -4,6 +4,7 @@ import {
   TODOIST_REST_API_BASE,
   TODOIST_SYNC_API_BASE,
 } from "./constants";
+import { logError, logDebug } from "./logger";
 
 export type TodoistId = string | number;
 
@@ -138,6 +139,13 @@ export async function fetchPaginated<T>(
     const pageItems = extractItems(body);
     items.push(...pageItems);
     cursor = getCursor(body);
+
+    logDebug("fetch_paginated_batch", {
+      endpoint: path,
+      batchSize: pageItems.length,
+      total: items.length,
+      hasMore: Boolean(cursor),
+    });
   } while (cursor);
 
   return items;
@@ -167,6 +175,8 @@ export async function fetchTaskComments(
   const queue = [...idsToFetch];
   const attempts = new Map<string, number>();
 
+  logDebug("fetch_comments_start", { taskCount: idsToFetch.length });
+
   while (queue.length > 0) {
     const taskId = queue.shift();
     if (!taskId) {
@@ -193,14 +203,16 @@ export async function fetchTaskComments(
       if (nextAttempts <= retryLimit) {
         queue.push(taskId);
       } else {
-        console.error(
-          "[logseq-todoist-backup] failed to fetch comments for task",
-          taskId,
-          error
-        );
+        const message = error instanceof Error ? error.message : String(error);
+        logError("failed to fetch comments for task", { taskId, error: message });
       }
     }
   }
+
+  logDebug("fetch_comments_completed", {
+    tasksWithComments: map.size,
+    totalComments: Array.from(map.values()).reduce((sum, comments) => sum + comments.length, 0),
+  });
 
   return map;
 }

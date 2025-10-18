@@ -17,6 +17,7 @@ import {
 import { readSettings, settingsSchema } from "./settings";
 import { cancelScheduledSync, scheduleAutoSync } from "./scheduler";
 import { provideStyles, registerCommands, registerToolbar } from "./ui";
+import { logError, logInfo, logDebug } from "./logger";
 
 let syncInProgress = false;
 
@@ -41,7 +42,7 @@ async function captureEditingState(): Promise<EditingState | undefined> {
 
     return { blockUuid, cursorPosition };
   } catch (error) {
-    console.error("[logseq-todoist-backup] failed to capture editing state", error);
+    logError("failed to capture editing state", error);
     return undefined;
   }
 }
@@ -73,7 +74,7 @@ async function restoreEditingState(state: EditingState | undefined) {
       await logseq.Editor.editBlock(state.blockUuid);
     }
   } catch (error) {
-    console.error("[logseq-todoist-backup] failed to restore editing focus", error);
+    logError("failed to restore editing focus", error);
   }
 }
 
@@ -192,13 +193,30 @@ async function syncTodoist(trigger: "manual" | "auto") {
     const projectMap = buildNameMap(projects);
     const labelMap = buildLabelMap(labels);
 
+    logDebug("fetch_completed", {
+      tasks: tasks.length,
+      completed: completedTasks.length,
+      projects: projects.length,
+      labels: labels.length,
+    });
+
     const backupTasks: TodoistBackupTask[] = mergeBackupTasks(tasks, completedTasks);
 
     const filteredTasks = applyTitleExclusions(backupTasks, excludePatterns);
 
+    if (filteredTasks.length < backupTasks.length) {
+      logInfo(`excluded ${backupTasks.length - filteredTasks.length} tasks by pattern`);
+    }
+
     const tasksForBlocks = includeComments
       ? await enrichTasksWithComments(filteredTasks, token)
       : filteredTasks;
+
+    logDebug("write_blocks_start", {
+      page: pageName,
+      tasks: tasksForBlocks.length,
+      includeComments,
+    });
 
     await writeBlocks(pageName, tasksForBlocks, projectMap, labelMap);
 
@@ -208,11 +226,11 @@ async function syncTodoist(trigger: "manual" | "auto") {
         "success"
       );
     } else {
-      console.info("[logseq-todoist-backup] automatic sync completed.");
+      logInfo("automatic sync completed");
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("[logseq-todoist-backup] failed to sync", error);
+    logError("failed to sync", error);
     await logseq.UI.showMsg(`Failed to sync Todoist: ${message}`, "error");
   } finally {
     syncInProgress = false;
@@ -252,5 +270,5 @@ function applyTitleExclusions(tasks: TodoistBackupTask[], patterns: RegExp[] | u
 logseq.ready(main)
   .then(registerLifecycle)
   .catch((error) => {
-    console.error("[logseq-todoist-backup] erro ao iniciar o plugin", error);
+    logError("erro ao iniciar o plugin", error);
   });

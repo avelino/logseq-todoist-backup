@@ -4,10 +4,11 @@ Logseq Todoist Backup – Agent Guidelines
 Project Snapshot
 
 - Logseq plugin written in strict TypeScript, bundled with Vite (`npx pnpm build`).
-- Main entry: `src/main.ts`; supporting modules: `todoist.ts`, `blocks.ts`, `settings.ts`, `scheduler.ts`, `ui.ts`, `constants.ts`.
+- Main entry: `src/main.ts`; supporting modules: `todoist.ts`, `blocks.ts`, `settings.ts`, `scheduler.ts`, `ui.ts`, `logger.ts`, `constants.ts`.
 - Interacts with Logseq runtime (`logseq` global) for UI, scheduling, and page mutations; communicates with Todoist REST API v1 via HTTPS.
 - Plugin setting `include_comments` controls whether Todoist comments are fetched during sync (default `false`).
 - Plugin setting `exclude_title_patterns` accepts newline-separated regex patterns to skip Todoist tasks whose titles match.
+- Plugin setting `enable_debug_logs` controls visibility of debug and info logs in browser console (default `false`); errors always visible.
 - When comments are enabled, `comments_collapsed` determines if the wrapper block starts collapsed (default `true`).
 - Tasks are organized in journal-style pages by date: `{page_name}/YYYY-MM-DD` for tasks with dates, `{page_name}/Backlog` for tasks without dates. This prevents single-page performance issues as task count grows.
 
@@ -21,9 +22,10 @@ Environment & Tooling
 
 Code Structure Rules
 
-- Preserve module boundaries: keep Todoist API DTOs and helpers inside `todoist.ts`; block construction in `blocks.ts`; scheduling logic in `scheduler.ts`.
+- Preserve module boundaries: keep Todoist API DTOs and helpers inside `todoist.ts`; block construction in `blocks.ts`; scheduling logic in `scheduler.ts`; logging utilities in `logger.ts`.
 - Keep all new runtime constants inside `constants.ts` unless strongly scoped to a module.
 - UI composition (`registerToolbar`, `provideStyles`, etc.) remains in `ui.ts`; avoid mixing DOM strings elsewhere.
+- Logging: use `logInfo()`, `logWarn()`, `logDebug()`, and `logError()` from `logger.ts` instead of raw console.* calls; structured logs use `logDebug(operation, data)` format.
 - Use TypeScript types exported from `todoist.ts` when handling Todoist entities; never duplicate type shapes.
 - Prefer pure functions returning new data over mutating inputs unless interacting with Logseq APIs that require mutation.
 - Document every function with a concise JSDoc block describing purpose and parameters. Include comment formatting expectations for comment blocks: prefix each Todoist comment with `[todoist](url)` and append sanitized text when present.
@@ -37,7 +39,7 @@ TypeScript & Validation Expectations
   - Logseq settings: trim strings, coerce numbers, clamp intervals (`>= 1 minute`); reuse `readSettingsWithInterval` for timing.
 - User-provided text: sanitize using existing helpers (`safeText`, `safeLinkText`, `formatLabelTag`, `convertInlineTodoistLabels`) before embedding into Logseq blocks; `safeLinkText` preserves Logseq wiki links and Markdown bracketed labels while stripping unmatched brackets; `convertInlineTodoistLabels` transforms Todoist inline labels (`@label-name`) to Logseq hashtags (`#label-name`) while preserving email addresses.
 - Prefer `unknown` over `any` for new external payloads; narrow via predicates or dedicated type guards.
-- Handle async errors with try/catch; present actionable messages via `logseq.UI.showMsg` and log details to console with `[logseq-todoist-backup]` prefix.
+- Handle async errors with try/catch; present actionable messages via `logseq.UI.showMsg` and log details using `logError()` from `logger.ts`.
 
 Quality Gates Before Submitting Changes
 
@@ -61,8 +63,11 @@ Development Conventions
 
 Error Handling & Logging
 
-- Prefix console logs with `[logseq-todoist-backup]` for filtering; log errors with stack traces when available.
-- Distinguish between manual and automatic sync contexts: warn the user only for manual triggers, silent log for background jobs.
+- Use structured logging from `logger.ts`: `logInfo()`, `logWarn()`, `logDebug(operation, data)`, `logError(message, error)`.
+- Debug and info logs respect `enable_debug_logs` setting (default disabled); errors always visible regardless of setting.
+- Structured debug logs use the format `logDebug("operation_name", { key: value })` for data visibility (e.g., `fetch_completed`, `write_blocks_start`).
+- Distinguish between manual and automatic sync contexts: warn the user only for manual triggers, use `logInfo()` for background jobs.
+- Never log raw Todoist tokens or sensitive user data; sanitize error objects before logging.
 - Retry logic must avoid tight loops; respect existing backoff via scheduling (`scheduleAutoSync`).
 
 Performance & Scheduling
@@ -74,7 +79,7 @@ Performance & Scheduling
 
 Security & Privacy
 
-- Never log raw Todoist tokens or sensitive user data.
+- Never log raw Todoist tokens or sensitive user data; logging utilities in `logger.ts` must never expose credentials.
 - Ensure headers for API calls include `Authorization: Bearer` only when token is present; abort early if missing.
 
 Review Checklist

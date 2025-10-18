@@ -1,6 +1,7 @@
 import type { SettingSchemaDesc } from "@logseq/libs/dist/LSPlugin";
 
 import { DEFAULT_PAGE_NAME } from "./constants";
+import { logWarn } from "./logger";
 
 export type PluginSettings = {
   todoist_token?: string;
@@ -8,6 +9,7 @@ export type PluginSettings = {
   sync_interval_minutes?: number;
   include_comments?: boolean;
   exclude_title_patterns?: string;
+  enable_debug_logs?: boolean;
 };
 
 export const settingsSchema: SettingSchemaDesc[] = [
@@ -48,6 +50,13 @@ export const settingsSchema: SettingSchemaDesc[] = [
     description:
       "Regular expressions to skip tasks by title. Provide one per line. Use /pattern/flags to customize flags; plain patterns default to case-insensitive matching.",
     inputAs: "textarea",
+  },
+  {
+    key: "enable_debug_logs",
+    type: "boolean",
+    default: false,
+    title: "Enable debug logs",
+    description: "Show detailed sync operations in the browser console. Useful for troubleshooting.",
   },
 ];
 
@@ -96,10 +105,7 @@ function compileTitleExcludePatterns(raw: string | undefined) {
       compiled.push(new RegExp(source, flags));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.warn(
-        "[logseq-todoist-backup] invalid exclude pattern ignored",
-        { pattern: line, message }
-      );
+      logWarn("invalid exclude pattern ignored", { pattern: line, message });
     }
   }
 
