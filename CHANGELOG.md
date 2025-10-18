@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/avelino/logseq-todoist-backup/compare/v1.2.0...v1.3.0) (2025-10-18)
+
+
+### Features
+
+* add debug logger util and expose debug log setting ([4d7dc80](https://github.com/avelino/logseq-todoist-backup/commit/4d7dc80c99f220c3d1759a6420d2fbce0b10aaec)), closes [#14](https://github.com/avelino/logseq-todoist-backup/issues/14)
+
 # [1.2.0](https://github.com/avelino/logseq-todoist-backup/compare/v1.1.0...v1.2.0) (2025-10-18)
 
 
