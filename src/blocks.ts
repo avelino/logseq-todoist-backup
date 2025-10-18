@@ -17,6 +17,7 @@ import {
   safeLinkText,
   safeText,
   dueTimestamp,
+  convertInlineTodoistLabels,
   TodoistBackupTask,
   TodoistComment,
 } from "./todoist";
@@ -282,7 +283,8 @@ export function blockContent(
   labelMap: Map<string, string>
 ) {
   const dueText = resolvePrimaryDate(task);
-  const taskTitle = safeLinkText(safeText(task.content) || "Untitled task");
+  const rawTitle = safeLinkText(safeText(task.content) || "Untitled task");
+  const taskTitle = convertInlineTodoistLabels(rawTitle);
   const projectName = projectMap.get(String(task.project_id ?? "")) ?? "Inbox";
   const labels = resolveLabels(task, labelMap);
   const url = task.url ?? `https://todoist.com/showTask?id=${task.id}`;
