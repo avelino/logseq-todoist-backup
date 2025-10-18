@@ -484,3 +484,18 @@ export function formatLabelTag(label: string) {
   const dashed = sanitized.replace(/\s+/g, "-");
   return dashed.startsWith("#") ? dashed : `#${dashed}`;
 }
+
+/**
+ * Converts Todoist inline labels (@label) to Logseq hashtags (#label).
+ * Preserves email addresses and other @ mentions that are not labels.
+ *
+ * @param text Text containing potential Todoist inline labels.
+ */
+export function convertInlineTodoistLabels(text: string): string {
+  if (!text) return "";
+
+  // Pattern: @ followed by word characters and hyphens (typical label format)
+  // Negative lookbehind to avoid matching emails (preceded by alphanumeric)
+  // Match @word-name but not user@email.com
+  return text.replace(/(?<![a-zA-Z0-9])@([\w-]+)/g, '#$1');
+}
