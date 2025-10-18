@@ -1,6 +1,7 @@
 import type { BlockEntity, BlockUUIDTuple, IBatchBlock } from "@logseq/libs/dist/LSPlugin";
 
 import {
+  BACKLOG_PAGE_SUFFIX,
   PLACEHOLDER_CONTENT,
   TODOIST_COMMENT_ID_PROPERTY,
   TODOIST_COMMENTS_PROPERTY,
@@ -22,13 +23,97 @@ import {
 
 type CommentWrapperBlock = IBatchBlock;
 
+type TaskWithBlock = {
+  task: TodoistBackupTask;
+  block: IBatchBlock;
+};
+
 /**
- * Ensures the target Logseq page exists and writes the provided blocks.
+ * Determines the destination page name for a task based on its date.
+ * Uses due date for active tasks, completion date for completed tasks,
+ * or Backlog for tasks without dates.
  *
- * @param pageName Destination page for the Todoist backup.
- * @param blocks Collection of blocks reflecting Todoist tasks and comments.
+ * @param task Todoist task to determine page for.
+ * @param pagePrefix Base page name prefix from settings (e.g., "todoist").
  */
-export async function writeBlocks(pageName: string, blocks: IBatchBlock[]) {
+export function resolveTaskPageName(task: TodoistBackupTask, pagePrefix: string): string {
+  // For completed tasks, use completion date
+  if (task.completed) {
+    const completedDate = task.completed_date ?? task.completed_at;
+    if (completedDate) {
+      const normalized = formatCompletedDate(completedDate);
+      if (normalized) {
+        return `${pagePrefix}/${normalized}`;
+      }
+    }
+  }
+
+  // For active tasks, use due date
+  const dueFormatted = formatDue(task.due);
+  if (dueFormatted) {
+    return `${pagePrefix}/${dueFormatted}`;
+  }
+
+  // Fallback to any existing due date
+  const fallback = task.fallbackDue;
+  if (fallback) {
+    const sanitized = safeText(fallback);
+    if (sanitized && /^\d{4}-\d{2}-\d{2}$/.test(sanitized)) {
+      return `${pagePrefix}/${sanitized}`;
+    }
+  }
+
+  // No date found, use Backlog
+  return `${pagePrefix}/${BACKLOG_PAGE_SUFFIX}`;
+}
+
+/**
+ * Groups tasks by date and writes them to separate journal-style pages.
+ *
+ * @param pagePrefix Base page name prefix from settings (e.g., "todoist").
+ * @param tasks Tasks with their corresponding block data.
+ * @param projectMap Mapping of project ids to names.
+ * @param labelMap Mapping of label ids or names to normalized names.
+ */
+export async function writeBlocks(
+  pagePrefix: string,
+  tasks: TodoistBackupTask[],
+  projectMap: Map<string, string>,
+  labelMap: Map<string, string>
+) {
+  // Group tasks by their destination page
+  const tasksByPage = new Map<string, TaskWithBlock[]>();
+
+  for (const task of tasks) {
+    const pageName = resolveTaskPageName(task, pagePrefix);
+    const block: IBatchBlock = {
+      content: blockContent(task, projectMap, labelMap),
+      children: buildCommentBlocks(task),
+    };
+
+    if (!tasksByPage.has(pageName)) {
+      tasksByPage.set(pageName, []);
+    }
+    tasksByPage.get(pageName)!.push({ task, block });
+  }
+
+  // Write blocks to each page
+  for (const [pageName, tasksWithBlocks] of tasksByPage.entries()) {
+    const blocks = tasksWithBlocks.map((t) => t.block);
+    await writeBlocksToPage(pageName, blocks);
+  }
+
+  // Clean up empty pages that may have had tasks moved
+  await cleanupObsoletePages(pagePrefix, tasksByPage);
+}
+
+/**
+ * Writes blocks to a specific Logseq page, updating or creating blocks as needed.
+ *
+ * @param pageName Destination page for the blocks.
+ * @param blocks Collection of blocks to write.
+ */
+async function writeBlocksToPage(pageName: string, blocks: IBatchBlock[]) {
   let page = await logseq.Editor.getPage(pageName);
   if (!page) {
     await logseq.Editor.createPage(pageName, {}, { createFirstBlock: true, redirect: false });
@@ -89,6 +174,66 @@ export async function writeBlocks(pageName: string, blocks: IBatchBlock[]) {
 
   if (blocks.length === 0 && blockMap.size === 0) {
     await logseq.Editor.appendBlockInPage(page.uuid, PLACEHOLDER_CONTENT);
+  }
+}
+
+/**
+ * Removes tasks from old pages when they've been moved to different dates.
+ * Searches for Todoist tasks in pages matching the prefix pattern.
+ *
+ * @param pagePrefix Base page name prefix.
+ * @param currentTasksByPage Map of current page names to their tasks.
+ */
+async function cleanupObsoletePages(
+  pagePrefix: string,
+  currentTasksByPage: Map<string, TaskWithBlock[]>
+) {
+  // Collect all current task IDs
+  const currentTaskIds = new Set<string>();
+  for (const tasksWithBlocks of currentTasksByPage.values()) {
+    for (const { task } of tasksWithBlocks) {
+      currentTaskIds.add(String(task.id));
+    }
+  }
+
+  // Search for pages with the prefix pattern
+  const allPages = await logseq.Editor.getAllPages();
+  if (!allPages) {
+    return;
+  }
+
+  for (const page of allPages) {
+    const pageName = page.originalName ?? page.name;
+    if (!pageName.startsWith(`${pagePrefix}/`)) {
+      continue;
+    }
+
+    // Skip pages that are in current sync
+    if (currentTasksByPage.has(pageName)) {
+      continue;
+    }
+
+    // Check blocks on this page
+    const existingBlocks = await logseq.Editor.getPageBlocksTree(page.uuid);
+    if (!existingBlocks || existingBlocks.length === 0) {
+      continue;
+    }
+
+    const blockMap = buildBlockMap(existingBlocks);
+    for (const [todoistId, entity] of blockMap.entries()) {
+      // Remove if task no longer exists in current sync
+      if (!currentTaskIds.has(todoistId)) {
+        const content = entity.content ?? "";
+        const status = extractTodoistStatus(content);
+        if (status === "completed") {
+          continue;
+        }
+        if (!status && hasCompletedProperty(content)) {
+          continue;
+        }
+        await logseq.Editor.removeBlock(entity.uuid);
+      }
+    }
   }
 }
 

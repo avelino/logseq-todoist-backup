@@ -9,6 +9,7 @@ Project Snapshot
 - Plugin setting `include_comments` controls whether Todoist comments are fetched during sync (default `false`).
 - Plugin setting `exclude_title_patterns` accepts newline-separated regex patterns to skip Todoist tasks whose titles match.
 - When comments are enabled, `comments_collapsed` determines if the wrapper block starts collapsed (default `true`).
+- Tasks are organized in journal-style pages by date: `{page_name}/YYYY-MM-DD` for tasks with dates, `{page_name}/Backlog` for tasks without dates. This prevents single-page performance issues as task count grows.
 
 Environment & Tooling
 
@@ -26,6 +27,7 @@ Code Structure Rules
 - Use TypeScript types exported from `todoist.ts` when handling Todoist entities; never duplicate type shapes.
 - Prefer pure functions returning new data over mutating inputs unless interacting with Logseq APIs that require mutation.
 - Document every function with a concise JSDoc block describing purpose and parameters. Include comment formatting expectations for comment blocks: prefix each Todoist comment with `[todoist](url)` and append sanitized text when present.
+- Page organization logic resides in `blocks.ts`: `resolveTaskPageName()` determines destination page based on task dates; `writeBlocks()` groups tasks by page and distributes them accordingly; `cleanupObsoletePages()` removes tasks from old pages when dates change.
 
 TypeScript & Validation Expectations
 
@@ -55,6 +57,7 @@ Development Conventions
 - Preserve Logseq history of completed items: blocks containing `todoist-completed::` should never be removed during sync.
 - Use `todoist-status::` to persist task lifecycle (`active`, `completed`); only remove blocks when Todoist no longer returns the task (treated as deleted).
 - Do not commit unused modules; delete dead code paths and ensure imports stay minimal.
+- Tasks are distributed across date-based pages: completed tasks use `completed_date`/`completed_at`, active tasks use `due` date, tasks without dates go to `{page_name}/Backlog`. When a task's date changes, it is automatically moved to the appropriate page during sync.
 
 Error Handling & Logging
 
@@ -67,6 +70,7 @@ Performance & Scheduling
 - Keep `scheduleAutoSync` idempotent; always cancel previous timers before creating new ones.
 - Avoid blocking UI thread: lengthy operations should stay asynchronous and rely on `Promise.all` for parallel Todoist fetches.
 - When processing tasks, work on copies (`[...tasks]`) to avoid mutating caller-owned arrays.
+- Journal-style page organization ensures each page remains small and performant: tasks are distributed by date to prevent single-page bottlenecks as backup history grows over months.
 
 Security & Privacy
 

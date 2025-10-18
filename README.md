@@ -9,7 +9,7 @@
 
 # Logseq Todoist Backup
 
-Logseq plugin that keeps a read-only backup of all Todoist tasks inside a dedicated page of your graph.
+Logseq plugin that keeps a read-only backup of all Todoist tasks organized in journal-style pages within your graph.
 
 ## Overview
 
@@ -18,6 +18,7 @@ Logseq plugin that keeps a read-only backup of all Todoist tasks inside a dedica
 - Automatic background sync with a configurable interval (default 5 minutes).
 - Updates existing blocks based on `todoist-id::`, avoiding duplicates and removing tasks that no longer exist while preserving completed tasks.
 - Generates Logseq-friendly blocks including links, description, project, and labels prefixed with `#`.
+- Tasks are organized in date-based pages (`todoist/YYYY-MM-DD`) to maintain performance as your backup grows. Tasks without dates are stored in `todoist/Backlog`.
 
 ## Requirements
 
@@ -35,7 +36,7 @@ Logseq plugin that keeps a read-only backup of all Todoist tasks inside a dedica
 Inside the plugin settings provide:
 
 - `Todoist token`: personal token from [Todoist Integrations](https://todoist.com/prefs/integrations).
-- `Target page`: name of the Logseq page where tasks will be synced (defaults to `todoist`).
+- `Target page`: prefix for the Logseq pages where tasks will be synced (defaults to `todoist`). Tasks will be organized under `{prefix}/YYYY-MM-DD` and `{prefix}/Backlog`.
 - `Sync interval (min)`: minutes between automatic background syncs (defaults to `5`).
 
 ## Usage
@@ -57,7 +58,12 @@ Dates are normalized to `YYYY-MM-DD`. Labels are sanitized and prefixed with `#`
 ## Sync behavior
 
 - Each task is identified by `todoist-id::`. Existing blocks are updated, new ones appended, and obsolete ones removed. Completed tasks remain available unless deleted in Todoist.
-- When no tasks are returned, a placeholder block with `No tasks found.` is inserted.
+- Tasks are automatically distributed to pages based on their dates:
+  - **Completed tasks**: placed in `{prefix}/{completion_date}` (e.g., `todoist/2025-10-18`)
+  - **Active tasks with due dates**: placed in `{prefix}/{due_date}` (e.g., `todoist/2025-10-20`)
+  - **Tasks without dates**: placed in `{prefix}/Backlog`
+- When a task's date changes, it is automatically moved to the appropriate page during the next sync.
+- When no tasks are found for a page, a placeholder block with `No tasks found.` is inserted.
 - All interactions with Todoist are read-only.
 
 ## Development

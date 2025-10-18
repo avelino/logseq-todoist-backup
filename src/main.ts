@@ -1,6 +1,6 @@
 import "@logseq/libs";
 
-import { buildBlocks, writeBlocks } from "./blocks";
+import { writeBlocks } from "./blocks";
 import {
   buildLabelMap,
   buildNameMap,
@@ -200,12 +200,11 @@ async function syncTodoist(trigger: "manual" | "auto") {
       ? await enrichTasksWithComments(filteredTasks, token)
       : filteredTasks;
 
-    const blocks = buildBlocks(tasksForBlocks, projectMap, labelMap);
-    await writeBlocks(pageName, blocks);
+    await writeBlocks(pageName, tasksForBlocks, projectMap, labelMap);
 
     if (trigger === "manual") {
       await logseq.UI.showMsg(
-        `Todoist backup synced (${blocks.length} tasks).`,
+        `Todoist backup synced (${tasksForBlocks.length} tasks).`,
         "success"
       );
     } else {
