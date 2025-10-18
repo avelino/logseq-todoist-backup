@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/avelino/logseq-todoist-backup/compare/v1.1.0...v1.2.0) (2025-10-18)
+
+
+### Features
+
+* Consistent inline label conversion, journal-style pages, and docs ([269759c](https://github.com/avelino/logseq-todoist-backup/commit/269759ca62cb5e74ad893ce56dc3c0977a45ef7b)), closes [#9](https://github.com/avelino/logseq-todoist-backup/issues/9)
+
 # [1.1.0](https://github.com/avelino/logseq-todoist-backup/compare/v1.0.3...v1.1.0) (2025-10-13)
 
 
