@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/avelino/logseq-todoist-backup/compare/v1.3.0...v1.4.0) (2025-10-27)
+
+
+### Features
+
+* Add customizable status aliases for Todoist tasks ([69b8c3c](https://github.com/avelino/logseq-todoist-backup/commit/69b8c3ceb8e8614fae5ff7b3467eb398737a1824))
+
 # [1.3.0](https://github.com/avelino/logseq-todoist-backup/compare/v1.2.0...v1.3.0) (2025-10-18)
 
 
