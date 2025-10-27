@@ -10,6 +10,9 @@ export type PluginSettings = {
   include_comments?: boolean;
   exclude_title_patterns?: string;
   enable_debug_logs?: boolean;
+  status_alias_active?: string;
+  status_alias_completed?: string;
+  status_alias_deleted?: string;
 };
 
 export const settingsSchema: SettingSchemaDesc[] = [
@@ -58,7 +61,37 @@ export const settingsSchema: SettingSchemaDesc[] = [
     title: "Enable debug logs",
     description: "Show detailed sync operations in the browser console. Useful for troubleshooting.",
   },
+  {
+    key: "status_alias_active",
+    type: "string",
+    default: "◼️",
+    title: "Status alias: Active",
+    description: "Custom display value for active tasks (default: ◼️). Leave empty to use 'active'.",
+  },
+  {
+    key: "status_alias_completed",
+    type: "string",
+    default: "✅",
+    title: "Status alias: Completed",
+    description: "Custom display value for completed tasks (default: ✅). Leave empty to use 'completed'.",
+  },
+  {
+    key: "status_alias_deleted",
+    type: "string",
+    default: "🗑️",
+    title: "Status alias: Deleted",
+    description: "Custom display value for deleted tasks (default: 🗑️). Leave empty to use 'deleted'.",
+  },
 ];
+
+/**
+ * Status alias configuration mapping canonical status to display values.
+ */
+export type StatusAliases = {
+  active: string;
+  completed: string;
+  deleted: string;
+};
 
 /**
  * Reads settings and enriches them with a validated interval in milliseconds.
@@ -71,15 +104,73 @@ export function readSettingsWithInterval() {
   const intervalMs = Math.max(intervalMinutes, 1) * 60 * 1000;
   const includeComments = Boolean(settings.include_comments);
   const excludePatterns = compileTitleExcludePatterns(settings.exclude_title_patterns);
-  return { token, pageName, intervalMs, includeComments, excludePatterns };
+  const statusAliases = readStatusAliases(settings);
+  return { token, pageName, intervalMs, includeComments, excludePatterns, statusAliases };
 }
 
 /**
  * Reads sanitized settings without interval metadata for simple callers.
  */
 export function readSettings() {
-  const { token, pageName, includeComments, excludePatterns } = readSettingsWithInterval();
-  return { token, pageName, includeComments, excludePatterns };
+  const { token, pageName, includeComments, excludePatterns, statusAliases } = readSettingsWithInterval();
+  return { token, pageName, includeComments, excludePatterns, statusAliases };
+}
+
+/**
+ * Reads and normalizes status alias configuration from plugin settings.
+ *
+ * @param settings Plugin settings containing status alias configuration.
+ */
+function readStatusAliases(settings: PluginSettings): StatusAliases {
+  const activeAlias = settings.status_alias_active?.trim();
+  const completedAlias = settings.status_alias_completed?.trim();
+  const deletedAlias = settings.status_alias_deleted?.trim();
+
+  return {
+    active: activeAlias || "active",
+    completed: completedAlias || "completed",
+    deleted: deletedAlias || "deleted",
+  };
+}
+
+/**
+ * Converts canonical status to configured alias for display in markdown.
+ *
+ * @param status Canonical Todoist status value.
+ * @param aliases Status alias configuration from settings.
+ */
+export function statusToAlias(
+  status: "active" | "completed" | "deleted",
+  aliases: StatusAliases
+): string {
+  return aliases[status];
+}
+
+/**
+ * Converts alias (or canonical status) back to canonical status value.
+ * Supports both alias values and canonical values for backward compatibility.
+ *
+ * @param value Status value from markdown (could be alias or canonical).
+ * @param aliases Status alias configuration from settings.
+ */
+export function aliasToStatus(
+  value: string,
+  aliases: StatusAliases
+): "active" | "completed" | "deleted" | undefined {
+  const trimmed = value.trim();
+  
+  // Check if it's an alias
+  if (trimmed === aliases.active) return "active";
+  if (trimmed === aliases.completed) return "completed";
+  if (trimmed === aliases.deleted) return "deleted";
+  
+  // Check if it's canonical (backward compatibility)
+  const lower = trimmed.toLowerCase();
+  if (lower === "active") return "active";
+  if (lower === "completed") return "completed";
+  if (lower === "deleted") return "deleted";
+  
+  return undefined;
 }
 
 /**

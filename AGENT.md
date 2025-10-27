@@ -9,6 +9,7 @@ Project Snapshot
 - Plugin setting `include_comments` controls whether Todoist comments are fetched during sync (default `false`).
 - Plugin setting `exclude_title_patterns` accepts newline-separated regex patterns to skip Todoist tasks whose titles match.
 - Plugin setting `enable_debug_logs` controls visibility of debug and info logs in browser console (default `false`); errors always visible.
+- Plugin settings `status_alias_active`, `status_alias_completed`, and `status_alias_deleted` allow users to customize the display value for task status (defaults: ◼️, ✅, 🗑️). Empty values fall back to canonical names (`active`, `completed`, `deleted`).
 - When comments are enabled, `comments_collapsed` determines if the wrapper block starts collapsed (default `true`).
 - Tasks are organized in journal-style pages by date: `{page_name}/YYYY-MM-DD` for tasks with dates, `{page_name}/Backlog` for tasks without dates. This prevents single-page performance issues as task count grows.
 
@@ -22,7 +23,7 @@ Environment & Tooling
 
 Code Structure Rules
 
-- Preserve module boundaries: keep Todoist API DTOs and helpers inside `todoist.ts`; block construction in `blocks.ts`; scheduling logic in `scheduler.ts`; logging utilities in `logger.ts`.
+- Preserve module boundaries: keep Todoist API DTOs and helpers inside `todoist.ts`; block construction in `blocks.ts`; scheduling logic in `scheduler.ts`; logging utilities in `logger.ts`; status alias mapping logic in `settings.ts`.
 - Keep all new runtime constants inside `constants.ts` unless strongly scoped to a module.
 - UI composition (`registerToolbar`, `provideStyles`, etc.) remains in `ui.ts`; avoid mixing DOM strings elsewhere.
 - Logging: use `logInfo()`, `logWarn()`, `logDebug()`, and `logError()` from `logger.ts` instead of raw console.* calls; structured logs use `logDebug(operation, data)` format.
@@ -36,7 +37,7 @@ TypeScript & Validation Expectations
 - Project runs with `strict` compiler options; ensure new code respects strict null checks and type inference.
 - Validate all external inputs aggressively:
   - Todoist responses: guard optional fields, normalize IDs to `string`, validate dates against `ISO_DATE_PATTERN`, and handle pagination cursors defensively.
-  - Logseq settings: trim strings, coerce numbers, clamp intervals (`>= 1 minute`); reuse `readSettingsWithInterval` for timing.
+  - Logseq settings: trim strings, coerce numbers, clamp intervals (`>= 1 minute`); reuse `readSettingsWithInterval` for timing. Status aliases are read via `readStatusAliases()` and exposed through `statusAliases` field in settings return values.
 - User-provided text: sanitize using existing helpers (`safeText`, `safeLinkText`, `formatLabelTag`, `convertInlineTodoistLabels`) before embedding into Logseq blocks; `safeLinkText` preserves Logseq wiki links and Markdown bracketed labels while stripping unmatched brackets; `convertInlineTodoistLabels` transforms Todoist inline labels (`@label-name`) to Logseq hashtags (`#label-name`) while preserving email addresses.
 - Prefer `unknown` over `any` for new external payloads; narrow via predicates or dedicated type guards.
 - Handle async errors with try/catch; present actionable messages via `logseq.UI.showMsg` and log details using `logError()` from `logger.ts`.
@@ -57,7 +58,7 @@ Development Conventions
 - Keep network utilities reusable; any new endpoint helpers belong in `todoist.ts` with shared pagination handling.
 - When updating existing blocks, ensure `todoist-id::` remains the canonical identifier; changes to block formatting must stay backward compatible and preserve completed tasks.
 - Preserve Logseq history of completed items: blocks containing `todoist-completed::` should never be removed during sync.
-- Use `todoist-status::` to persist task lifecycle (`active`, `completed`); only remove blocks when Todoist no longer returns the task (treated as deleted).
+- Use `todoist-status::` to persist task lifecycle (`active`, `completed`, `deleted`); status values are written using configured aliases from settings and read back using bidirectional mapping (`statusToAlias` and `aliasToStatus` helpers in `settings.ts`). This ensures backward compatibility: blocks with canonical status names are still recognized even after alias configuration changes.
 - Do not commit unused modules; delete dead code paths and ensure imports stay minimal.
 - Tasks are distributed across date-based pages: completed tasks use `completed_date`/`completed_at`, active tasks use `due` date, tasks without dates go to `{page_name}/Backlog`. When a task's date changes, it is automatically moved to the appropriate page during sync.
 
