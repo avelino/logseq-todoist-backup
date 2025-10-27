@@ -16,3 +16,6 @@ export const TODOIST_COMMENT_POSTED_PROPERTY = "todoist-comment-posted";
 export const PLACEHOLDER_CONTENT = "No tasks found.";
 export const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 export const BACKLOG_PAGE_SUFFIX = "Backlog";
+export const DEFAULT_STATUS_ALIAS_ACTIVE = "◼️";
+export const DEFAULT_STATUS_ALIAS_COMPLETED = "✅";
+export const DEFAULT_STATUS_ALIAS_DELETED = "❌";
