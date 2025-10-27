@@ -68,6 +68,12 @@ export function resolveTaskPageName(task: TodoistBackupTask, pagePrefix: string)
   return `${pagePrefix}/${BACKLOG_PAGE_SUFFIX}`;
 }
 
+export type StatusAliases = {
+  active: string;
+  completed: string;
+  deleted: string;
+};
+
 /**
  * Groups tasks by date and writes them to separate journal-style pages.
  *
@@ -75,12 +81,14 @@ export function resolveTaskPageName(task: TodoistBackupTask, pagePrefix: string)
  * @param tasks Tasks with their corresponding block data.
  * @param projectMap Mapping of project ids to names.
  * @param labelMap Mapping of label ids or names to normalized names.
+ * @param statusAliases Custom aliases for task status values.
  */
 export async function writeBlocks(
   pagePrefix: string,
   tasks: TodoistBackupTask[],
   projectMap: Map<string, string>,
-  labelMap: Map<string, string>
+  labelMap: Map<string, string>,
+  statusAliases: StatusAliases
 ) {
   // Group tasks by their destination page
   const tasksByPage = new Map<string, TaskWithBlock[]>();
@@ -88,7 +96,7 @@ export async function writeBlocks(
   for (const task of tasks) {
     const pageName = resolveTaskPageName(task, pagePrefix);
     const block: IBatchBlock = {
-      content: blockContent(task, projectMap, labelMap),
+      content: blockContent(task, projectMap, labelMap, statusAliases),
       children: buildCommentBlocks(task),
     };
 
@@ -244,11 +252,13 @@ async function cleanupObsoletePages(
  * @param tasks Tasks returned from Todoist ready for serialization.
  * @param projectMap Mapping of project ids to names.
  * @param labelMap Mapping of label ids or names to normalized names.
+ * @param statusAliases Custom aliases for task status values.
  */
 export function buildBlocks(
   tasks: TodoistBackupTask[],
   projectMap: Map<string, string>,
-  labelMap: Map<string, string>
+  labelMap: Map<string, string>,
+  statusAliases: StatusAliases
 ): IBatchBlock[] {
   const sorted = [...tasks].sort((a, b) => {
     const aCompleted = Boolean(a.completed);
@@ -265,7 +275,7 @@ export function buildBlocks(
   });
 
   return sorted.map((task) => ({
-    content: blockContent(task, projectMap, labelMap),
+    content: blockContent(task, projectMap, labelMap, statusAliases),
     children: buildCommentBlocks(task),
   }));
 }
@@ -276,11 +286,13 @@ export function buildBlocks(
  * @param task Todoist task with optional completion metadata.
  * @param projectMap Mapping of project ids to names.
  * @param labelMap Mapping of label ids or names to normalized names.
+ * @param statusAliases Custom aliases for task status values.
  */
 export function blockContent(
   task: TodoistBackupTask,
   projectMap: Map<string, string>,
-  labelMap: Map<string, string>
+  labelMap: Map<string, string>,
+  statusAliases: StatusAliases
 ) {
   const dueText = resolvePrimaryDate(task);
   const rawTitle = safeLinkText(safeText(task.content) || "Untitled task");
@@ -326,7 +338,8 @@ export function blockContent(
   }
 
   const statusValue = task.status ?? (task.completed ? "completed" : "active");
-  properties.push(`${TODOIST_STATUS_PROPERTY}:: ${statusValue}`);
+  const statusAlias = resolveStatusAlias(statusValue, statusAliases);
+  properties.push(`${TODOIST_STATUS_PROPERTY}:: ${statusAlias}`);
 
   return [`${dateLogseqFormat} ${taskTitleLogseqFormat}`, ...properties].join("\n");
 }
@@ -635,4 +648,23 @@ function resolveLabels(task: TodoistBackupTask, labelMap: Map<string, string>) {
     }
   }
   return names;
+}
+
+/**
+ * Resolves the display alias for a task status based on configured aliases.
+ *
+ * @param status Raw status value from Todoist.
+ * @param statusAliases Configured status alias mappings.
+ */
+function resolveStatusAlias(status: string, statusAliases: StatusAliases): string {
+  switch (status) {
+    case "active":
+      return statusAliases.active;
+    case "completed":
+      return statusAliases.completed;
+    case "deleted":
+      return statusAliases.deleted;
+    default:
+      return status;
+  }
 }

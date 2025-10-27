@@ -9,6 +9,7 @@ Project Snapshot
 - Plugin setting `include_comments` controls whether Todoist comments are fetched during sync (default `false`).
 - Plugin setting `exclude_title_patterns` accepts newline-separated regex patterns to skip Todoist tasks whose titles match.
 - Plugin setting `enable_debug_logs` controls visibility of debug and info logs in browser console (default `false`); errors always visible.
+- Plugin settings `status_alias_active`, `status_alias_completed`, and `status_alias_deleted` allow customization of task status display values (defaults: ◼️, ✅, ❌ respectively); aliases are applied to the `todoist-status::` property in task blocks.
 - When comments are enabled, `comments_collapsed` determines if the wrapper block starts collapsed (default `true`).
 - Tasks are organized in journal-style pages by date: `{page_name}/YYYY-MM-DD` for tasks with dates, `{page_name}/Backlog` for tasks without dates. This prevents single-page performance issues as task count grows.
 
@@ -57,7 +58,7 @@ Development Conventions
 - Keep network utilities reusable; any new endpoint helpers belong in `todoist.ts` with shared pagination handling.
 - When updating existing blocks, ensure `todoist-id::` remains the canonical identifier; changes to block formatting must stay backward compatible and preserve completed tasks.
 - Preserve Logseq history of completed items: blocks containing `todoist-completed::` should never be removed during sync.
-- Use `todoist-status::` to persist task lifecycle (`active`, `completed`); only remove blocks when Todoist no longer returns the task (treated as deleted).
+- Use `todoist-status::` to persist task lifecycle (`active`, `completed`, `deleted`); the displayed status value uses configured aliases from settings (default emojis: ◼️ for active, ✅ for completed, ❌ for deleted); only remove blocks when Todoist no longer returns the task (treated as deleted).
 - Do not commit unused modules; delete dead code paths and ensure imports stay minimal.
 - Tasks are distributed across date-based pages: completed tasks use `completed_date`/`completed_at`, active tasks use `due` date, tasks without dates go to `{page_name}/Backlog`. When a task's date changes, it is automatically moved to the appropriate page during sync.
 

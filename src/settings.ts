@@ -1,6 +1,11 @@
 import type { SettingSchemaDesc } from "@logseq/libs/dist/LSPlugin";
 
-import { DEFAULT_PAGE_NAME } from "./constants";
+import { 
+  DEFAULT_PAGE_NAME,
+  DEFAULT_STATUS_ALIAS_ACTIVE,
+  DEFAULT_STATUS_ALIAS_COMPLETED,
+  DEFAULT_STATUS_ALIAS_DELETED,
+} from "./constants";
 import { logWarn } from "./logger";
 
 export type PluginSettings = {
@@ -10,6 +15,9 @@ export type PluginSettings = {
   include_comments?: boolean;
   exclude_title_patterns?: string;
   enable_debug_logs?: boolean;
+  status_alias_active?: string;
+  status_alias_completed?: string;
+  status_alias_deleted?: string;
 };
 
 export const settingsSchema: SettingSchemaDesc[] = [
@@ -58,6 +66,27 @@ export const settingsSchema: SettingSchemaDesc[] = [
     title: "Enable debug logs",
     description: "Show detailed sync operations in the browser console. Useful for troubleshooting.",
   },
+  {
+    key: "status_alias_active",
+    type: "string",
+    default: DEFAULT_STATUS_ALIAS_ACTIVE,
+    title: "Status alias: Active",
+    description: "Custom text or emoji to represent active tasks (default: ◼️).",
+  },
+  {
+    key: "status_alias_completed",
+    type: "string",
+    default: DEFAULT_STATUS_ALIAS_COMPLETED,
+    title: "Status alias: Completed",
+    description: "Custom text or emoji to represent completed tasks (default: ✅).",
+  },
+  {
+    key: "status_alias_deleted",
+    type: "string",
+    default: DEFAULT_STATUS_ALIAS_DELETED,
+    title: "Status alias: Deleted",
+    description: "Custom text or emoji to represent deleted tasks (default: ❌).",
+  },
 ];
 
 /**
@@ -71,15 +100,16 @@ export function readSettingsWithInterval() {
   const intervalMs = Math.max(intervalMinutes, 1) * 60 * 1000;
   const includeComments = Boolean(settings.include_comments);
   const excludePatterns = compileTitleExcludePatterns(settings.exclude_title_patterns);
-  return { token, pageName, intervalMs, includeComments, excludePatterns };
+  const statusAliases = readStatusAliases(settings);
+  return { token, pageName, intervalMs, includeComments, excludePatterns, statusAliases };
 }
 
 /**
  * Reads sanitized settings without interval metadata for simple callers.
  */
 export function readSettings() {
-  const { token, pageName, includeComments, excludePatterns } = readSettingsWithInterval();
-  return { token, pageName, includeComments, excludePatterns };
+  const { token, pageName, includeComments, excludePatterns, statusAliases } = readSettingsWithInterval();
+  return { token, pageName, includeComments, excludePatterns, statusAliases };
 }
 
 /**
@@ -132,4 +162,17 @@ function extractPattern(input: string) {
   }
 
   return { source: input, flags: "i" };
+}
+
+/**
+ * Reads and sanitizes status aliases from plugin settings.
+ * Falls back to default emoji values if not configured.
+ *
+ * @param settings Plugin settings object.
+ */
+function readStatusAliases(settings: PluginSettings) {
+  const active = settings.status_alias_active?.trim() || DEFAULT_STATUS_ALIAS_ACTIVE;
+  const completed = settings.status_alias_completed?.trim() || DEFAULT_STATUS_ALIAS_COMPLETED;
+  const deleted = settings.status_alias_deleted?.trim() || DEFAULT_STATUS_ALIAS_DELETED;
+  return { active, completed, deleted };
 }
