@@ -21,6 +21,7 @@ import {
   TodoistBackupTask,
   TodoistComment,
 } from "./todoist";
+import type { StatusAliasMap } from "./settings";
 
 type CommentWrapperBlock = IBatchBlock;
 
@@ -75,12 +76,14 @@ export function resolveTaskPageName(task: TodoistBackupTask, pagePrefix: string)
  * @param tasks Tasks with their corresponding block data.
  * @param projectMap Mapping of project ids to names.
  * @param labelMap Mapping of label ids or names to normalized names.
+ * @param statusAliases Bidirectional mapping for status aliases.
  */
 export async function writeBlocks(
   pagePrefix: string,
   tasks: TodoistBackupTask[],
   projectMap: Map<string, string>,
-  labelMap: Map<string, string>
+  labelMap: Map<string, string>,
+  statusAliases: StatusAliasMap
 ) {
   // Group tasks by their destination page
   const tasksByPage = new Map<string, TaskWithBlock[]>();
@@ -88,7 +91,7 @@ export async function writeBlocks(
   for (const task of tasks) {
     const pageName = resolveTaskPageName(task, pagePrefix);
     const block: IBatchBlock = {
-      content: blockContent(task, projectMap, labelMap),
+      content: blockContent(task, projectMap, labelMap, statusAliases),
       children: buildCommentBlocks(task),
     };
 
@@ -101,11 +104,11 @@ export async function writeBlocks(
   // Write blocks to each page
   for (const [pageName, tasksWithBlocks] of tasksByPage.entries()) {
     const blocks = tasksWithBlocks.map((t) => t.block);
-    await writeBlocksToPage(pageName, blocks);
+    await writeBlocksToPage(pageName, blocks, statusAliases);
   }
 
   // Clean up empty pages that may have had tasks moved
-  await cleanupObsoletePages(pagePrefix, tasksByPage);
+  await cleanupObsoletePages(pagePrefix, tasksByPage, statusAliases);
 }
 
 /**
@@ -113,8 +116,9 @@ export async function writeBlocks(
  *
  * @param pageName Destination page for the blocks.
  * @param blocks Collection of blocks to write.
+ * @param statusAliases Bidirectional mapping for status aliases.
  */
-async function writeBlocksToPage(pageName: string, blocks: IBatchBlock[]) {
+async function writeBlocksToPage(pageName: string, blocks: IBatchBlock[], statusAliases: StatusAliasMap) {
   let page = await logseq.Editor.getPage(pageName);
   if (!page) {
     await logseq.Editor.createPage(pageName, {}, { createFirstBlock: true, redirect: false });
@@ -163,7 +167,7 @@ async function writeBlocksToPage(pageName: string, blocks: IBatchBlock[]) {
   const obsoleteBlocks = [...blockMap.entries()].filter(([id]) => !seenIds.has(id));
   for (const [, entity] of obsoleteBlocks) {
     const content = entity.content ?? "";
-    const status = extractTodoistStatus(content);
+    const status = extractTodoistStatus(content, statusAliases);
     if (status === "completed") {
       continue;
     }
@@ -184,10 +188,12 @@ async function writeBlocksToPage(pageName: string, blocks: IBatchBlock[]) {
  *
  * @param pagePrefix Base page name prefix.
  * @param currentTasksByPage Map of current page names to their tasks.
+ * @param statusAliases Bidirectional mapping for status aliases.
  */
 async function cleanupObsoletePages(
   pagePrefix: string,
-  currentTasksByPage: Map<string, TaskWithBlock[]>
+  currentTasksByPage: Map<string, TaskWithBlock[]>,
+  statusAliases: StatusAliasMap
 ) {
   // Collect all current task IDs
   const currentTaskIds = new Set<string>();
@@ -225,7 +231,7 @@ async function cleanupObsoletePages(
       // Remove if task no longer exists in current sync
       if (!currentTaskIds.has(todoistId)) {
         const content = entity.content ?? "";
-        const status = extractTodoistStatus(content);
+        const status = extractTodoistStatus(content, statusAliases);
         if (status === "completed") {
           continue;
         }
@@ -244,11 +250,13 @@ async function cleanupObsoletePages(
  * @param tasks Tasks returned from Todoist ready for serialization.
  * @param projectMap Mapping of project ids to names.
  * @param labelMap Mapping of label ids or names to normalized names.
+ * @param statusAliases Bidirectional mapping for status aliases.
  */
 export function buildBlocks(
   tasks: TodoistBackupTask[],
   projectMap: Map<string, string>,
-  labelMap: Map<string, string>
+  labelMap: Map<string, string>,
+  statusAliases: StatusAliasMap
 ): IBatchBlock[] {
   const sorted = [...tasks].sort((a, b) => {
     const aCompleted = Boolean(a.completed);
@@ -265,7 +273,7 @@ export function buildBlocks(
   });
 
   return sorted.map((task) => ({
-    content: blockContent(task, projectMap, labelMap),
+    content: blockContent(task, projectMap, labelMap, statusAliases),
     children: buildCommentBlocks(task),
   }));
 }
@@ -276,11 +284,13 @@ export function buildBlocks(
  * @param task Todoist task with optional completion metadata.
  * @param projectMap Mapping of project ids to names.
  * @param labelMap Mapping of label ids or names to normalized names.
+ * @param statusAliases Bidirectional mapping for status aliases.
  */
 export function blockContent(
   task: TodoistBackupTask,
   projectMap: Map<string, string>,
-  labelMap: Map<string, string>
+  labelMap: Map<string, string>,
+  statusAliases: StatusAliasMap
 ) {
   const dueText = resolvePrimaryDate(task);
   const rawTitle = safeLinkText(safeText(task.content) || "Untitled task");
@@ -326,7 +336,8 @@ export function blockContent(
   }
 
   const statusValue = task.status ?? (task.completed ? "completed" : "active");
-  properties.push(`${TODOIST_STATUS_PROPERTY}:: ${statusValue}`);
+  const statusAlias = statusAliases.statusToAlias.get(statusValue) ?? statusValue;
+  properties.push(`${TODOIST_STATUS_PROPERTY}:: ${statusAlias}`);
 
   return [`${dateLogseqFormat} ${taskTitleLogseqFormat}`, ...properties].join("\n");
 }
@@ -523,13 +534,28 @@ export function extractTodoistId(content: string) {
 
 /**
  * Reads the persisted Todoist status property from block content.
+ *
+ * @param content Block content containing status property.
+ * @param statusAliases Bidirectional mapping for status aliases.
  */
-function extractTodoistStatus(content: string): TodoistBackupTask["status"] | undefined {
+function extractTodoistStatus(content: string, statusAliases: StatusAliasMap): TodoistBackupTask["status"] | undefined {
   const match = content.match(new RegExp(`^${TODOIST_STATUS_PROPERTY}::\\s*(.+)$`, "mi"));
   const value = match ? match[1].trim().toLowerCase() : undefined;
+  if (!value) {
+    return undefined;
+  }
+  
+  // Try to map alias back to status
+  const status = statusAliases.aliasToStatus.get(value);
+  if (status) {
+    return status;
+  }
+  
+  // Fallback to original status values for backward compatibility
   if (value === "active" || value === "completed" || value === "deleted") {
     return value;
   }
+  
   return undefined;
 }
 

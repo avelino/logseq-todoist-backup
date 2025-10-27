@@ -10,6 +10,9 @@ export type PluginSettings = {
   include_comments?: boolean;
   exclude_title_patterns?: string;
   enable_debug_logs?: boolean;
+  status_alias_active?: string;
+  status_alias_completed?: string;
+  status_alias_deleted?: string;
 };
 
 export const settingsSchema: SettingSchemaDesc[] = [
@@ -58,6 +61,27 @@ export const settingsSchema: SettingSchemaDesc[] = [
     title: "Enable debug logs",
     description: "Show detailed sync operations in the browser console. Useful for troubleshooting.",
   },
+  {
+    key: "status_alias_active",
+    type: "string",
+    default: "◼️",
+    title: "Status alias: Active",
+    description: "Custom text or emoji to represent active tasks in todoist-status property.",
+  },
+  {
+    key: "status_alias_completed",
+    type: "string",
+    default: "✅",
+    title: "Status alias: Completed",
+    description: "Custom text or emoji to represent completed tasks in todoist-status property.",
+  },
+  {
+    key: "status_alias_deleted",
+    type: "string",
+    default: "🗑️",
+    title: "Status alias: Deleted",
+    description: "Custom text or emoji to represent deleted tasks in todoist-status property.",
+  },
 ];
 
 /**
@@ -71,15 +95,16 @@ export function readSettingsWithInterval() {
   const intervalMs = Math.max(intervalMinutes, 1) * 60 * 1000;
   const includeComments = Boolean(settings.include_comments);
   const excludePatterns = compileTitleExcludePatterns(settings.exclude_title_patterns);
-  return { token, pageName, intervalMs, includeComments, excludePatterns };
+  const statusAliases = readStatusAliases(settings);
+  return { token, pageName, intervalMs, includeComments, excludePatterns, statusAliases };
 }
 
 /**
  * Reads sanitized settings without interval metadata for simple callers.
  */
 export function readSettings() {
-  const { token, pageName, includeComments, excludePatterns } = readSettingsWithInterval();
-  return { token, pageName, includeComments, excludePatterns };
+  const { token, pageName, includeComments, excludePatterns, statusAliases } = readSettingsWithInterval();
+  return { token, pageName, includeComments, excludePatterns, statusAliases };
 }
 
 /**
@@ -132,4 +157,46 @@ function extractPattern(input: string) {
   }
 
   return { source: input, flags: "i" };
+}
+
+/**
+ * Status type representing possible Todoist task states.
+ */
+export type TodoistStatus = "active" | "completed" | "deleted";
+
+/**
+ * Mapping between Todoist status values and their configured aliases.
+ */
+export type StatusAliasMap = {
+  statusToAlias: Map<TodoistStatus, string>;
+  aliasToStatus: Map<string, TodoistStatus>;
+};
+
+/**
+ * Reads and builds bidirectional mapping for status aliases.
+ *
+ * @param settings Plugin settings containing alias configurations.
+ */
+function readStatusAliases(settings: PluginSettings): StatusAliasMap {
+  const activeAlias = (settings.status_alias_active?.trim() || "◼️").toLowerCase();
+  const completedAlias = (settings.status_alias_completed?.trim() || "✅").toLowerCase();
+  const deletedAlias = (settings.status_alias_deleted?.trim() || "🗑️").toLowerCase();
+
+  const statusToAlias = new Map<TodoistStatus, string>([
+    ["active", activeAlias],
+    ["completed", completedAlias],
+    ["deleted", deletedAlias],
+  ]);
+
+  const aliasToStatus = new Map<string, TodoistStatus>([
+    [activeAlias, "active"],
+    [completedAlias, "completed"],
+    [deletedAlias, "deleted"],
+    // Keep original status names as fallback for backward compatibility
+    ["active", "active"],
+    ["completed", "completed"],
+    ["deleted", "deleted"],
+  ]);
+
+  return { statusToAlias, aliasToStatus };
 }
