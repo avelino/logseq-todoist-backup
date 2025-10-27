@@ -161,7 +161,7 @@ async function syncTodoist(trigger: "manual" | "auto") {
     return;
   }
 
-  const { token, pageName, includeComments, excludePatterns } = readSettings();
+  const { token, pageName, includeComments, excludePatterns, statusAliases } = readSettings();
   if (!token) {
     if (trigger === "manual") {
       await logseq.UI.showMsg(
@@ -218,7 +218,7 @@ async function syncTodoist(trigger: "manual" | "auto") {
       includeComments,
     });
 
-    await writeBlocks(pageName, tasksForBlocks, projectMap, labelMap);
+    await writeBlocks(pageName, tasksForBlocks, projectMap, labelMap, statusAliases);
 
     if (trigger === "manual") {
       await logseq.UI.showMsg(

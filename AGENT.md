@@ -9,6 +9,7 @@ Project Snapshot
 - Plugin setting `include_comments` controls whether Todoist comments are fetched during sync (default `false`).
 - Plugin setting `exclude_title_patterns` accepts newline-separated regex patterns to skip Todoist tasks whose titles match.
 - Plugin setting `enable_debug_logs` controls visibility of debug and info logs in browser console (default `false`); errors always visible.
+- Plugin settings `status_alias_active`, `status_alias_completed`, and `status_alias_deleted` allow customization of status values in `todoist-status::` property (defaults: `◼️`, `✅`, `🗑️`). The plugin reads and writes these aliases while maintaining backward compatibility with canonical status values (`active`, `completed`, `deleted`).
 - When comments are enabled, `comments_collapsed` determines if the wrapper block starts collapsed (default `true`).
 - Tasks are organized in journal-style pages by date: `{page_name}/YYYY-MM-DD` for tasks with dates, `{page_name}/Backlog` for tasks without dates. This prevents single-page performance issues as task count grows.
 
@@ -22,8 +23,9 @@ Environment & Tooling
 
 Code Structure Rules
 
-- Preserve module boundaries: keep Todoist API DTOs and helpers inside `todoist.ts`; block construction in `blocks.ts`; scheduling logic in `scheduler.ts`; logging utilities in `logger.ts`.
+- Preserve module boundaries: keep Todoist API DTOs and helpers inside `todoist.ts`; block construction in `blocks.ts`; scheduling logic in `scheduler.ts`; logging utilities in `logger.ts`; status mapping utilities in `constants.ts`.
 - Keep all new runtime constants inside `constants.ts` unless strongly scoped to a module.
+- Status aliases: use `statusToAlias()` when writing status to markdown blocks; use `aliasToStatus()` when reading status from existing blocks. Both functions are exported from `constants.ts` and require `StatusAliases` from settings.
 - UI composition (`registerToolbar`, `provideStyles`, etc.) remains in `ui.ts`; avoid mixing DOM strings elsewhere.
 - Logging: use `logInfo()`, `logWarn()`, `logDebug()`, and `logError()` from `logger.ts` instead of raw console.* calls; structured logs use `logDebug(operation, data)` format.
 - Use TypeScript types exported from `todoist.ts` when handling Todoist entities; never duplicate type shapes.
@@ -57,7 +59,7 @@ Development Conventions
 - Keep network utilities reusable; any new endpoint helpers belong in `todoist.ts` with shared pagination handling.
 - When updating existing blocks, ensure `todoist-id::` remains the canonical identifier; changes to block formatting must stay backward compatible and preserve completed tasks.
 - Preserve Logseq history of completed items: blocks containing `todoist-completed::` should never be removed during sync.
-- Use `todoist-status::` to persist task lifecycle (`active`, `completed`); only remove blocks when Todoist no longer returns the task (treated as deleted).
+- Use `todoist-status::` to persist task lifecycle (`active`, `completed`, `deleted`); status values are displayed using user-configured aliases but parsed bidirectionally (recognizing both canonical values and aliases). Only remove blocks when Todoist no longer returns the task (treated as deleted).
 - Do not commit unused modules; delete dead code paths and ensure imports stay minimal.
 - Tasks are distributed across date-based pages: completed tasks use `completed_date`/`completed_at`, active tasks use `due` date, tasks without dates go to `{page_name}/Backlog`. When a task's date changes, it is automatically moved to the appropriate page during sync.
 

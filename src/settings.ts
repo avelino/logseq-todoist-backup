@@ -10,6 +10,9 @@ export type PluginSettings = {
   include_comments?: boolean;
   exclude_title_patterns?: string;
   enable_debug_logs?: boolean;
+  status_alias_active?: string;
+  status_alias_completed?: string;
+  status_alias_deleted?: string;
 };
 
 export const settingsSchema: SettingSchemaDesc[] = [
@@ -58,6 +61,27 @@ export const settingsSchema: SettingSchemaDesc[] = [
     title: "Enable debug logs",
     description: "Show detailed sync operations in the browser console. Useful for troubleshooting.",
   },
+  {
+    key: "status_alias_active",
+    type: "string",
+    default: "◼️",
+    title: "Status alias: Active",
+    description: "Custom value to display for active tasks (default: ◼️). This appears in the todoist-status property.",
+  },
+  {
+    key: "status_alias_completed",
+    type: "string",
+    default: "✅",
+    title: "Status alias: Completed",
+    description: "Custom value to display for completed tasks (default: ✅). This appears in the todoist-status property.",
+  },
+  {
+    key: "status_alias_deleted",
+    type: "string",
+    default: "🗑️",
+    title: "Status alias: Deleted",
+    description: "Custom value to display for deleted tasks (default: 🗑️). This appears in the todoist-status property.",
+  },
 ];
 
 /**
@@ -71,15 +95,27 @@ export function readSettingsWithInterval() {
   const intervalMs = Math.max(intervalMinutes, 1) * 60 * 1000;
   const includeComments = Boolean(settings.include_comments);
   const excludePatterns = compileTitleExcludePatterns(settings.exclude_title_patterns);
-  return { token, pageName, intervalMs, includeComments, excludePatterns };
+  const statusAliases = readStatusAliases(settings);
+  return { token, pageName, intervalMs, includeComments, excludePatterns, statusAliases };
 }
 
 /**
  * Reads sanitized settings without interval metadata for simple callers.
  */
 export function readSettings() {
-  const { token, pageName, includeComments, excludePatterns } = readSettingsWithInterval();
-  return { token, pageName, includeComments, excludePatterns };
+  const { token, pageName, includeComments, excludePatterns, statusAliases } = readSettingsWithInterval();
+  return { token, pageName, includeComments, excludePatterns, statusAliases };
+}
+
+/**
+ * Reads and validates status alias settings.
+ */
+function readStatusAliases(settings: PluginSettings) {
+  return {
+    active: settings.status_alias_active?.trim() || "◼️",
+    completed: settings.status_alias_completed?.trim() || "✅",
+    deleted: settings.status_alias_deleted?.trim() || "🗑️",
+  };
 }
 
 /**
