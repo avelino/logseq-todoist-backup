@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/avelino/logseq-todoist-backup/compare/v1.4.0...v1.5.0) (2025-11-06)
+
+
+### Features
+
+* **blocks:** robust [@label](https://github.com/label) → #label converter preserves wiki-link and email context ([0a3346c](https://github.com/avelino/logseq-todoist-backup/commit/0a3346c6e8ee573b58c5de996173f4ed59ea13ad))
+
 # [1.4.0](https://github.com/avelino/logseq-todoist-backup/compare/v1.3.0...v1.4.0) (2025-10-27)
 
 
