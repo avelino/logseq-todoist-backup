@@ -500,14 +500,39 @@ export function formatLabelTag(label: string) {
 /**
  * Converts Todoist inline labels (@label) to Logseq hashtags (#label).
  * Preserves email addresses and other @ mentions that are not labels.
+ * Skips conversion inside Logseq page links ([[...]]).
  *
  * @param text Text containing potential Todoist inline labels.
  */
 export function convertInlineTodoistLabels(text: string): string {
   if (!text) return "";
 
-  // Pattern: @ followed by word characters and hyphens (typical label format)
-  // Negative lookbehind to avoid matching emails (preceded by alphanumeric)
-  // Match @word-name but not user@email.com
-  return text.replace(/(?<![a-zA-Z0-9])@([\w-]+)/g, '#$1');
+  const convertSegment = (segment: string) =>
+    segment.replace(/(?<![a-zA-Z0-9])@([\w-]+)/g, '#$1');
+
+  let result = "";
+  let index = 0;
+
+  while (index < text.length) {
+    const linkStart = text.indexOf("[[", index);
+    if (linkStart === -1) {
+      result += convertSegment(text.slice(index));
+      break;
+    }
+
+    if (linkStart > index) {
+      result += convertSegment(text.slice(index, linkStart));
+    }
+
+    const linkEnd = text.indexOf("]]", linkStart + 2);
+    if (linkEnd === -1) {
+      result += convertSegment(text.slice(linkStart));
+      break;
+    }
+
+    result += text.slice(linkStart, linkEnd + 2);
+    index = linkEnd + 2;
+  }
+
+  return result;
 }
